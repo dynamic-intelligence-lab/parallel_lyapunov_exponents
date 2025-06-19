@@ -57,18 +57,6 @@ seq_LEs = lyapunov_exponents.estimate_sequentially(jac_vals, dt=dt)
 print("The estimated Lorenz LEs are:, seq_LEs.tolist(), sep='\n')
 ```
 
-## Using Custom QR-Decomposition Functions
-
-Our library implements a custom QR-decomposition function that scales well for parallel estimation of Lyapunov exponents of _low-dimensional_ systems. As the number of dimensions increases, parallel execution of all QR-decompositions can saturate a single GPU at approximately 100% utilization, requiring additional parallel hardware (_e.g._, more GPUs, more GPU nodes, supercomputing infrastructure) to benefit from parallel execution.
-
-If you have access to additional parallel hardware, you can specify a custom QR-decomposition function that takes advantage of it. For example, if your QR-decomposition function is called `MyParallelQRFunc`, you can execute:
-
-```python
-LEs = lyapunov_exponents.estimate_in_parallel(jac_vals, dt=dt, qr_func=MyParallelQRFunc)
-```
-
-Please see `estimate_in_parallel`'s docstring for more details.
-
 
 ## Replicating Published Results
 
@@ -109,9 +97,21 @@ print(benchmarks)
 ```
 
 
+## Using Custom QR-Decomposition Functions
+
+Our library implements a custom QR-decomposition function that scales well for parallel estimation of Lyapunov exponents of _low-dimensional_ systems. As the number of dimensions increases, parallel execution of all QR-decompositions can saturate a single GPU at approximately 100% utilization, requiring additional parallel hardware (_e.g._, more GPUs, more GPU nodes, supercomputing infrastructure) to benefit from parallelization. If you have access to additional hardware, you can specify a custom QR-decomposition function that takes advantage of it. For example, if you name your parallelized QR-decomposition function `MyParallelQRFunc`, you would execute:
+
+```python
+LEs = lyapunov_exponents.estimate_in_parallel(jac_vals, dt=dt, qr_func=MyParallelQRFunc)
+```
+
+Your custom QR-decomposition function must accept a single torch.float64 tensor of shape `n_states` x `n_dims` x `n_dims`, where `n_states` may vary, and return a tuple of torch.float64 tensors, each with the same shape, containing, respectively, the $Q$ and $R$ matrix factors for each state.
+
+
 ## Citing
 
 TODO
+
 
 ## Background
 
