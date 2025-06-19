@@ -20,7 +20,8 @@ Import the library with:
 import lyapunov_exponents
 ```
 
-The library provides two methods, `estimate_in_parallel` and `estimate_sequentially`, for estimating the spectrum of Lyapunov exponents in parallel and sequentially, respectively. Please see each method's docstring for details on their use.
+The library provides two methods, `estimate_in_parallel` and `estimate_sequentially`, for estimating the spectrum of Lyapunov exponents in parallel and sequentially, respectively, of any dynamical system. Below, as an example, we show how to use both methods to one dynamical system. Please see each method's docstring for additional details on how to use them.
+
 
 ## Example
 
@@ -56,6 +57,11 @@ To estimate the exponents sequentially, use:
 seq_LEs = lyapunov_exponents.estimate_sequentially(jac_vals, dt=dt)
 print("The estimated Lorenz LEs are:, seq_LEs.tolist(), sep='\n')
 ```
+
+
+## Estimating the Largest Lyapunov Exponent in Parallel
+
+TODO: Add write-up and code for estimating largest Lyapunov exponent.
 
 
 ## Replicating Published Results
