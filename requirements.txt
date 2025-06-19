@@ -1,0 +1,4 @@
+tqdm
+numpy
+torch
+git+https://github.com/glassroom/generalized_orders_of_magnitude
