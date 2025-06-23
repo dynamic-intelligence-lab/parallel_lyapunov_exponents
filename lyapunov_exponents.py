@@ -154,7 +154,7 @@ class _UpdateLogStatesOnRightWithSelectiveResetsOnLeft():
         cos_sims = cos_sim_mat.masked_select(idx_above_diag).view(*U_on_L.shape[:-2], -1)    # [..., 1, <num of elements above diag>]
 
         # Determine which stacks on the left should be modified:
-        A_on_L_is_near_colinear = (cos_sims > max_cos_sim).int().sum(dim=-1) >= n_above_max  # [..., 1] boolean
+        A_on_L_is_near_colinear = (cos_sims > max_cos_sim).long().sum(dim=-1) >= n_above_max # [..., 1] boolean
         B_on_L_is_still_zeroed = (goom.exp(log_B_on_L) == 0).all(dim=(-2, -1))               # [..., 1] boolean
         should_modify_on_L = A_on_L_is_near_colinear & B_on_L_is_still_zeroed                # [..., 1] boolean
 
