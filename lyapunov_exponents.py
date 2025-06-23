@@ -2,10 +2,10 @@ import math
 import torch
 import torch.nn.functional as F
 import generalized_orders_of_magnitude as goom
+import torch_parallel_scan as tps
 
 
-# Configure goom library to use Float64:
-goom.config.float_dtype = torch.float64
+goom.config.float_dtype = torch.float64  # for precision
 
 
 # Functions for normalizing vectors over generalized orders of magnitude:
@@ -96,14 +96,14 @@ def _prefix_scan(x, prefix_transform, dim, pad_value=0):
         all_on_R = all_on_R.movedim((-2, -1), (dim - 1, dim))
         all_on_R = prefix_transform(last_on_L, all_on_R)
         all_on_R = all_on_R.movedim((dim - 1, dim), (-2, -1))
-        y[..., n:] = all_on_R  # update in-place
+        y[..., n:] = all_on_R  # update *in-place*
     y = y.view(*other_dims, -1)
     y = y[..., :seq_len]
     y = y.movedim(-1, dim)  # [*preceding_dims, seq_len, *operand_dims]
     return y
 
 
-# Class for selective-resetting transformation over GOOMs:
+# Class for binary associative transform:
 
 class _UpdateLogStatesOnRightWithSelectiveResetsOnLeft():
     """
@@ -116,7 +116,7 @@ class _UpdateLogStatesOnRightWithSelectiveResetsOnLeft():
     log_A exceeds `max_cos_sim` and the corresponding left log_B is all log-
     zeros, we first modify that left log_A *in-place* to be log-zeros and that
     left log_B *in-place* to be log(orthonormal basis of the left A, obtained
-    via QR- decomposition), selectively resetting the state with log-orthonormal
+    via QR- decomposition), resetting the sequence with (log-) orthonormal
     biases at that step. Inputs and outputs consist of log_A's stacked atop
     log_B's, i.e., each step's input and output stack has shape [d * 2, d].
 
@@ -127,9 +127,9 @@ class _UpdateLogStatesOnRightWithSelectiveResetsOnLeft():
         device: string, torch device.
     Inputs:
         stack_on_L: log-tensor of shape [..., 1, d * 2, d].
-        stacks_on_R: log-tensor of shape [..., <varies>, d * 2, d].
+        stacks_on_R: log-tensor of shape [..., <num>, d * 2, d].
     Output:
-        updated_stacks_on_R: log-tensor of shape [..., <varies>, d * 2, d].
+        updated_stacks_on_R: log-tensor of shape [..., <num>, d * 2, d].
     """
     def __init__(self, d, max_cos_sim, qr_func, device):
         self.d, self.max_cos_sim, self.qr_func = (d, max_cos_sim, qr_func)
@@ -148,7 +148,7 @@ class _UpdateLogStatesOnRightWithSelectiveResetsOnLeft():
         U_on_L = goom.exp(_log_normalize_exp(log_A_on_L, dim=-1))                          # [..., 1, d, d], A's vecs scaled to unit norm
         cos_sim_mat = U_on_L.matmul(U_on_L.transpose(-2, -1))                              # [..., 1, d, d], gram matrix with cosines
         idx_above_diag = torch.ones_like(cos_sim_mat).triu(diagonal=1).bool()              # [..., 1, d, d], True above diag, False elsewhere
-        cos_sims = cos_sim_mat.masked_select(idx_above_diag).view(*U_on_L.shape[:-2], -1)  # [..., 1, <number of elements above diag>]
+        cos_sims = cos_sim_mat.masked_select(idx_above_diag).view(*U_on_L.shape[:-2], -1)  # [..., 1, <num of elements above diag>]
 
         # Determine which stacks on the left should be modified:
         A_on_L_is_near_colinear = (cos_sims > max_cos_sim).any(dim=-1)                     # [..., 1] boolean
@@ -156,14 +156,14 @@ class _UpdateLogStatesOnRightWithSelectiveResetsOnLeft():
         should_modify_on_L = A_on_L_is_near_colinear & B_on_L_is_still_zeroed              # [..., 1] boolean
 
         if torch.any(should_modify_on_L):
-            # Get subset of unit-length vecs for stacks to be modified on left:
+            # Get subset of unit-length vecs for stacks to be modified on on left:
             idx = should_modify_on_L[..., None, None].expand_as(U_on_L)                    # [..., 1, d, d]
             subset_on_L = U_on_L[idx].view(*U_on_L.shape[:-4], -1, 1, d, d)                # [<subset dims>, 1, d, d]
 
             # Obtain orthonormal bases of that subset:
             Q = self.qr_func(subset_on_L.transpose(-2, -1))[0].transpose(-2, -1)           # [<subset dims>, 1, d, d], L-to-R
 
-            # Replace subset of left inputs with stacks of log-zeros and log-ortho bases:
+            # Replace subset of left inputs with stacks log-zeros and log-ortho bases:
             idx = should_modify_on_L[..., None, None].expand_as(stack_on_L)                # [..., 1, d * 2, d]
             log_zeros_atop_Q = goom.log(F.pad(Q, (0, 0,  d, 0), value=0))                  # [<subset dims>, d * 2, d]
             stack_on_L[idx] = log_zeros_atop_Q.view(stack_on_L[idx].shape)                 # modify left inputs in-place!
@@ -171,18 +171,22 @@ class _UpdateLogStatesOnRightWithSelectiveResetsOnLeft():
         # Compute log(left A @ right A), log(left B @ right A + right B):
         log_zeros_atop_I = self.log_zeros_atop_I.expand(*stack_on_L.shape[:-2], -1, -1)    # [..., 1, d * 2, d]
         log_factors_on_L = torch.cat([stack_on_L, log_zeros_atop_I], dim=-1)               # [..., 1, d * 2, d * 2]
-        return goom.log_matmul_exp(log_factors_on_L, stacks_on_R)                          # [..., <number on right>, d * 2, d]
+        return goom.log_matmul_exp(log_factors_on_L, stacks_on_R)                          # [..., <num on right>, d * 2, d]
 
 
 # Functions for estimating Lyapunov exponents:
 
 @torch.no_grad()
-def estimate_in_parallel(jac_vals, max_cos_sim=0.99999, qr_func=None, dt=1.0):
+def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, qr_func=None):
     """
-    Estimates Lyapunov exponents given a sequence of Jacobian matrix values.
+    Estimates spectrum of Lyapunov exponents given a sequence of Jacobian matrix
+    values, applying the parallel algortihm proposed in "Generalized Orders of
+    Magnitude for Scalable, Parallel, High-Dynamic-Range Computation" (Heinsen
+    and Kozachkov, 2025).
 
     Inputs:
         jac_vals: float tensor, seq of R-to-L Jacobians, [..., n_steps, d, d].
+        dt: float scalar, discrete time interval.
         max_cos_sim: (optional) float, max cosine similarity allowed between
             any pair of deviation vectors on a step, above which all vectors
             are orthonormalized to avoid colinearity. Default: 0.99999.
@@ -190,9 +194,8 @@ def estimate_in_parallel(jac_vals, max_cos_sim=0.99999, qr_func=None, dt=1.0):
             If provided, the function must accept torch.float inputs of shape
             [..., d, d] and return a tuple with two outputs of the same shape,
             [..., d, d], equal to the Q and R matrix factors, respectively.
-        dt: (optional) float, discrete time interval. Default: 1.0.
     Output:
-        est_LEs: tensor, estimated spectra of Lyapunov exponents [..., d].
+        est_LEs: float tensor, estimated spectra of Lyapunov exponents [..., d].
     """
     d = jac_vals.size(-1)
     if qr_func is None:
@@ -210,11 +213,11 @@ def estimate_in_parallel(jac_vals, max_cos_sim=0.99999, qr_func=None, dt=1.0):
     cum_stacks = _prefix_scan(stacks, prefix_transform, dim=-3)                           # [..., n_steps, d * 2, d]
     log_S = goom.log_add_exp(cum_stacks[..., :d, :], cum_stacks[..., d:, :])              # [..., n_steps, d, d], log-states
 
-    # Get orthonormal bases of exponentiated log-states:
+    # Get ortho bases of exponentiated log-states:
     U = goom.exp(_log_normalize_exp(log_S, dim=-1))                                       # [..., n_steps, d, d], state vecs scaled to unit norm
     inp_states, _ = qr_func(U.transpose(-2, -1))                                          # [..., n_steps, d, d], R-to-L orthonormal bases (Q's)
 
-    # Apply jac_vals to prev steps' orthonormal bases and estimate exponents:
+    # Apply jac_vals to prev steps' ortho bases and estimate exponents:
     out_states = jac_vals @ inp_states.to(jac_vals.dtype)                                 # [..., n_steps, d, d]
     _, out_R = qr_func(out_states)                                                        # [..., n_steps, d, d]
     est_LEs = out_R.diagonal(dim1=-2, dim2=-1).abs().log().mean(dim=-2) / dt              # [..., d]
@@ -222,22 +225,54 @@ def estimate_in_parallel(jac_vals, max_cos_sim=0.99999, qr_func=None, dt=1.0):
 
 
 @torch.no_grad()
-def estimate_sequentially(jac_vals, dt=1.0):
+def estimate_spectrum_sequentially(jac_vals, dt, qr_func=None):
     """
-    Estimates Lyapunov exponents given a sequence of Jacobian matrix values.
+    Estimates spectrum of Lyapunov exponents given a sequence of Jacobian matrix
+    values, applying the standard method with sequential QR-decompositions.
 
     Input:
         jac_vals: float tensor, seq of R-to-L Jacobians, [..., n_steps, d, d].
-        dt: (optional) float, discrete time interval. Default: 1.0.
+        dt: float scalar, discrete time interval.
+        qr_func: (optional) function for broadcastable QR-decomposition.
+            If provided, the function must accept torch.float inputs of shape
+            [..., d, d] and return a tuple with two outputs of the same shape,
+            [..., d, d], equal to the Q and R matrix factors, respectively.
     Output:
-        est_LEs: tensor, estimated spectra of Lyapunov exponents [..., d].
+        est_LEs: float tensor, estimated spectra of Lyapunov exponents [..., d].
     """
+    if qr_func is None:
+        qr_func = torch.linalg.qr
     n_steps, d = jac_vals.shape[-3:-1]
     L = jac_vals.new_zeros(d)
     Q = F.normalize(torch.randn_like(jac_vals[..., :1, :, :]), dim=-2)
     for J in jac_vals:
         U = J @ Q
-        Q, R = torch.linalg.qr(U)
+        Q, R = qr_func(U)
         L = L + R.diagonal(dim1=-2, dim2=-1).abs().log()
     est_LEs = (L / n_steps).flatten() / dt
     return est_LEs
+
+
+@torch.no_grad()
+def estimate_largest_in_parallel(jac_vals, dt):
+    """
+    Estimates largest Lyapunov exponent given a sequence of Jacobian matrix
+    values, applying the parallel expression proposed in "Generalized Orders
+    of Magnitude for Scalable, Parallel, High-Dynamic-Range Computation"
+    (Heinsen and Kozachkov, 2025).
+
+    Inputs:
+        jac_vals: float tensor, seq of R-to-L Jacobians, [..., n_steps, d, d].
+        dt: float scalar, discrete time interval.
+    Output:
+        est_LLE: float tensor, estimated largest Lyapunov exponent, [...].
+    """
+    n_steps, d = (jac_vals.size(-3), jac_vals.size(-1))
+    log_J = goom.log(jac_vals.transpose(-2, -1))                                     # transposed L-to-R log-Jacobians
+    u0 = F.normalize(torch.randn_like(jac_vals[..., 0, :1, :]))                      # [..., 1, d], initial state
+    log_end_state = goom.log_matmul_exp(
+        goom.log(u0),                                                                # [..., 1, d], initial log-state
+        tps.reduce_scan(log_J, goom.log_matmul_exp, dim=-3),                         # [..., d, d], compounded L-to-R
+    )                                                                                # [..., 1, d], ending log-state
+    est_LLE = goom.log_sum_exp(log_end_state * 2, dim=-1).real / (2 * n_steps * dt)  # see Appendix B in paper
+    return est_LLE

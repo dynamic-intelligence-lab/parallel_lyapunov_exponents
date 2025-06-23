@@ -1,13 +1,28 @@
 # parallel_lyapunov_exponents
 
-Initial reference implementation of the algorithm we propose for estimating the spectrum of Lyapunov exponents of a dynamical system in parallel, with a prefix scan incorporating a novel selective-resetting mechanism. Our algorithm operates over generalized orders of magnitude (GOOMs) to be able to handle a larger dynamic range of magnitudes than is possible with torch.float64, and uses our selective-resetting method for detecting whenever interim deviation states are close to collapsing into colinear vectors in the direction of the eigenvector associated with the largest Lyapunov exponent, and for resetting such near-colinear states by replacing them with orthonormal vectors in the same subspace, as the prefix scan updates all deviation states in parallel, over GOOMs. We have tested the implementation in this repository on all dynamical systems from [William Gilpin's repository](https://github.com/GilpinLab/dysts), spanning multiple scientific disciplines, including astrophysics, climatology, and biochemistry. On a recent midtier Nvidia GPU, our method is orders of magnitude faster than sequential estimation for all systems in Gilpin's repository.
+Initial reference implementation of the algorithm we propose for estimating the Lyapunov exponents of dynamical systems in parallel, with a prefix scan, leveraging generalized orders of magnitude (GOOMs) to be able to handle a larger dynamic range of magnitudes than would be possible with torch.float64. Example:
 
+```python
+import torch
+import lyapunov_exponents
+
+DEVICE = 'cuda'  # change as needed
+
+system = torch.load('lorenz.pt')
+jac_vals, dt, n_dims = (system['jac_vals'], system['dt'], system['n_dims'])
+if system['is_continuous']:
+    jac_vals = torch.eye(n_dims) + jac_vals * dt  # Euler approximation
+jac_vals = jac_vals.to(device=DEVICE)
+
+LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)
+print(LEs.tolist())
+```
 
 ## Installing
 
 1. Clone this repository.
 
-2. Install the dependencies in `requirements.txt`.
+2. Install all dependencies in `requirements.txt`.
 
 3. There is no third step.
 
@@ -20,12 +35,20 @@ Import the library with:
 import lyapunov_exponents
 ```
 
-The library provides two methods, `estimate_in_parallel` and `estimate_sequentially`, for estimating the spectrum of Lyapunov exponents in parallel and sequentially, respectively, of any dynamical system. Below, as an example, we show how to use both methods to one dynamical system. Please see each method's docstring for additional details on how to use them.
+The library provides three public methods:
+
+* `estimate_spectrum_in_parallel`, for estimating the spectrum of Lyapunov exponents in parallel, applying the parallel algorithm we propose, incorporating our selective-resetting method, as described in our paper;
+
+* `estimate_largest_in_parallel`, for estimating only the largest Lyapunov exponent in parallel, applying the expression we algebraically derive in Appendix B of our paper; and
+
+* `estimate_spectrum_sequentially`, for estimating the spectrum of Lyapunov exponents sequentially, applying the standard method with sequential QR-decompositions. We provide this method as a convenience, for benchmarking purposes.
+
+Below we show how to use all methods to estimate Lyapunov exponents for one dynamical system. Please see each method's docstring for additional details on how to use it.
 
 
 ## Example
 
-We provide a precomputed sequence of Jacobian values, from the well-known [Lorenz system](https://en.wikipedia.org/wiki/Lorenz_system), in the file `lorenz.pt`. You can quickly test that the library is working properly by executing the following code:
+We provide a precomputed sequence with 100,000 Jacobian values from the well-known [Lorenz system](https://en.wikipedia.org/wiki/Lorenz_system) in the file `lorenz.pt`. You can quickly test that the library is working properly by executing the following code:
 
 ```python
 import torch
@@ -37,7 +60,7 @@ DEVICE = 'cuda'  # change as needed
 system = torch.load('lorenz.pt')
 jac_vals, dt, n_dims = (system['jac_vals'], system['dt'], system['n_dims'])
 
-# If necessary, map to Jacobian values of transition func with respect to state
+# If necessary, map to Jacobian values of transition func with respect to state:
 if system['is_continuous']:
     jac_vals =  torch.eye(n_dims) + jac_vals * dt  # Euler approximation
 
@@ -45,33 +68,35 @@ if system['is_continuous']:
 jac_vals = jac_vals.to(device=DEVICE)
 
 # Estimate the spectrum of Lyapunov exponents in parallel:
-LEs = lyapunov_exponents.estimate_in_parallel(jac_vals, dt=dt)
-print("The estimated Lyapunov Exponents for {} are:\n{}".format(system['name'], LEs.tolist()))
-```
-
-We also provide a method for estimating the spectrum of exponents sequentially:
-
-```python
-seq_LEs = lyapunov_exponents.estimate_sequentially(jac_vals, dt=dt)
-print("The estimated Lorenz LEs are:, seq_LEs.tolist(), sep='\n')
+LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)
+print("Estimated spectrum of Lyapunov exponents for {}:".format(system['name']))
+print(LEs.tolist())
 ```
 
 For comparison, the true Lyapunov Exponents of Lorenz are estimated to be `[0.905, 0.0, −14.572]`.
 
+To estimate only the largest Lyapunov exponents in parallel, use:
 
+```python
+LLE = lyapunov_exponents.estimate_largest_in_parallel(jac_vals, dt=dt)
+print("Parallel estimated largest Lyapunov exponent for {}:\n{}".format(system['name'], LLE.item()))
+```
 
-## Estimating the Largest Lyapunov Exponent in Parallel
+To estimate the spectrum of Lyapunov exponents sequentially, use:
 
-TODO: Add write-up and code for estimating largest Lyapunov exponent.
+```python
+seq_LEs = lyapunov_exponents.estimate_spectrum_sequentially(jac_vals, dt=dt)
+print("Sequential estimated spectrum of Lyapunov exponents for {}:\n{}".format(system['name'], seq_LEs.tolist()))
+```
 
 
 ## Replicating Published Results
 
-We have tested our parallel algorithm on all dynamical systems modeled in [William Gilpin's repository](https://github.com/GilpinLab/dysts), and confirmed that our algorithm estimates the spectrum of Lyapunov exponents in parallel with similar accuracy as sequential estimation, but with execution times that are orders of magnitude faster.
+We have tested our parallel algorithm on all dynamical systems modeled in [William Gilpin's repository](https://github.com/GilpinLab/dysts), and confirmed that our algorithm estimates the spectrum of Lyapunov exponents in parallel with comparable accuracy to sequential estimation, but with execution times that are orders of magnitude faster.
 
-To replicate our benchmarks, you must install Gilpin's [code](https://github.com/GilpinLab/dysts), compute a sequence of 100,000 Jacobian values for every system, and store all data in a Python list of dictionaries called `systems`, with each dictionary having the following keys: `"name": str`, `"is_continuous": bool`, `"n_dims": int`, `"dt": float`, `"jac_vals": torch.float64`. The Jacobian values should be in the form a `torch.float64` tensor with `100,000` x `n_dims` x `n_dims` elements.
+To replicate our benchmarks, please install Gilpin's [code](https://github.com/GilpinLab/dysts), compute a sequence of 100,000 Jacobian values for every system, and store the resulting data in a Python list of dictionaries called `systems`, with each dictionary having the following keys: `"name": str`, `"is_continuous": bool`, `"n_dims": int`, `"dt": float`, `"jac_vals": torch.float64`. The Jacobian values, `"jac_vals"`, should be in the form a `torch.float64` tensor with `100,000` x `n_dims` x `n_dims` elements.
 
-Once you have the data ready, execute the following code to run all benchmarks:
+Once you have computed the data for all systems, execute the following code to run all benchmarks:
 
 ```python
 import torch
@@ -95,14 +120,14 @@ for system in pbar:
 
         pbar.set_description("{}, {:,} steps, parallel, 7 runs".format(system['name'], n_steps))
         parallel_mean_time = torch.utils.benchmark.Timer(
-            stmt='lyapunov_exponents.estimate_in_parallel(jac_vals, dt=dt)',
+            stmt='lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)',
             setup='from __main__ import lyapunov_exponents',
             globals={'jac_vals': jac_vals[:n_steps], 'dt': dt, }
         ).timeit(7).mean
 
         pbar.set_description("{}, {:,} steps, sequential, 7 runs".format(system['name'], n_steps))
         sequential_mean_time = torch.utils.benchmark.Timer(
-                stmt='lyapunov_exponents.estimate_sequentially(jac_vals, dt=dt)',
+                stmt='lyapunov_exponents.estimate_spectrum_sequentially(jac_vals, dt=dt)',
                 setup='from __main__ import lyapunov_exponents',
                 globals={'jac_vals': jac_vals[:n_steps], 'dt': dt, }
             ).timeit(7).mean
@@ -119,22 +144,35 @@ print(*benchmarks, sep='\n')
 ```
 
 
-## Scaling to Greater Number of Dimensions with Custom QR-Decomposition Functions
+## Scaling Parallel Estimation of Spectrum to Higher-Dimensional Systems
 
-Our library implements a custom QR-decomposition function that scales well for parallel estimation of Lyapunov exponents of _low-dimensional_ systems. As the number of dimensions increases, parallel execution of all QR-decompositions can saturate a single GPU at approximately 100% utilization, requiring additional parallel hardware (_e.g._, more GPUs, more GPU nodes, supercomputing infrastructure) to benefit from parallelization. If you have access to additional hardware, you can specify a custom QR-decomposition function that takes advantage of it. For example, if you name your parallelized QR-decomposition function `MyParallelQRFunc`, you would execute:
+Our library implements a custom QR-decomposition function that scales well for parallel estimation of the spectrum of Lyapunov exponents of _low-dimensional_ systems. As the number of dimensions increases, parallel execution of all QR-decompositions eventually saturates a single GPU at approximately 100% utilization, requiring additional parallel hardware (_e.g._, more GPUs, more GPU nodes, supercomputing infrastructure) to benefit from parallelization. If you have access to additional parallel hardware, you can specify a custom QR-decomposition function that takes advantage of it. For example, if your parallelized QR-decomposition function is called `MyParallelQRFunc`, you would execute:
 
 ```python
-LEs = lyapunov_exponents.estimate_in_parallel(jac_vals, dt=dt, qr_func=MyParallelQRFunc)
+LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt, qr_func=MyParallelQRFunc)
 ```
 
-Your custom QR-decomposition function must accept a single torch.float64 tensor of shape `n_states` x `n_dims` x `n_dims`, where `n_states` may vary, and return a tuple of torch.float64 tensors, each with the same shape, containing, respectively, the $Q$ and $R$ matrix factors for each state.
+Your custom QR-decomposition function must accept a single torch.float64 tensor of shape `...` x `n_dims` x `n_dims`, where `...` can be any number of dimensions, and return a tuple of torch.float64 tensors, _each_ with the same shape (`...` x `n_dims` x `n_dims`), containing, respectively, the $Q$ and $R$ factors for each matrix.
+
+Our parallel method for estimating only the largest Lyapunov exponent scales well to higher-dimensional systems.
 
 
 ## Citing
 
-TODO
+TODO: Update citation.
 
+```
+@misc{heinsenkozachkov2025gooms,
+    title={
+        Generalized Orders of Magnitude for
+        Scalable, Parallel, High-Dynamic-Range Computation},
+    author={Franz A. Heinsen, Leo Kozachkov},
+    year={2025},
+}
+```
 
-## Background
+## Notes
 
-The work here originated with casual conversations over email between us, the authors, in which we wondered if it might be possible to find a succinct expression for computing non-diagonal linear recurrences in parallel, by mapping them to the domain of complex logarithms. Our casual conversations gradually evolved into the development of generalized orders of magnitude, an algorithm for estimating Lyapunov exponents in parallel, and a novel method for selectively resetting interim states in a parallel prefix scan. We hope others find our work and our code useful.
+The work here originated with casual conversations over email between us, the authors, in which we wondered if it might be possible to find a succinct expression for computing non-diagonal linear recurrences in parallel, by mapping them to the complex plane. Our casual conversations gradually evolved into the development of generalized orders of magnitude, along with an algorithm for estimating Lyapunov exponents in parallel, and a novel method for selectively resetting interim states in a parallel prefix scan.
+
+We hope others find our work and our code useful.
