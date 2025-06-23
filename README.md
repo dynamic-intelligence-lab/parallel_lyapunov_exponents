@@ -73,7 +73,7 @@ print("Estimated spectrum of Lyapunov exponents for {}:".format(system['name']))
 print(LEs.tolist())
 ```
 
-For comparison, the true Lyapunov Exponents of Lorenz are estimated to be `[0.905, 0.0, −14.572]`.
+For comparison, the true spectrum of Lorenz is estimated to be `[0.905, 0.0, −14.572]`.
 
 To estimate only the largest Lyapunov exponents in parallel, use:
 
