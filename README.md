@@ -175,7 +175,7 @@ Appendix C of our paper explains our selective-resetting method informally, with
 
 ## Scaling to Higher-Dimensional Systems
 
-### Spectrum of Lyapunov Exponents
+### Spectrum of Lyapunov Exponents of Higher-Dimensional Systems
 
 Our code for parallel estimation of the spectrum of Lyapunov exponents relies on a custom QR-decomposition function that scales well with the number of time steps for _low-dimensional_ systems. As the number of dimensions increases, parallel execution of QR-decompositions can saturate a single GPU to near-100% utilization, requiring additional parallel hardware (_e.g._, additional GPUs, additional GPU nodes, a distributed supercomputer) to benefit from parallelization.
 
@@ -188,7 +188,7 @@ LEs = lyapunov_exponents.estimate_spectrum_in_parallel(
 
 Your custom QR-decomposition function must accept a single torch.float64 tensor of shape `...` x `n_dims` x `n_dims`, where `...` can be any number of preceding dimensions, and return a tuple of torch.float64 tensors, _each_ with the same shape (`...` x `n_dims` x `n_dims`), containing, respectively, the $Q$ and $R$ factors for each matrix in the input tensor.
 
-### Largest Lyapunov Exponent
+### Largest Lyapunov Exponent of Higher-Dimensional Systems
 
 Our code for parallel estimation of the largest Lyapunov exponent of a dynamical system scales well with the number of steps, as well as to higher-dimensional systems, without modification, subject only to the memory limits of a single cuda device.
 
