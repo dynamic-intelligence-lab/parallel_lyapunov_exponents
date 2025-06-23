@@ -169,7 +169,8 @@ Our code for parallel estimation of the spectrum of Lyapunov exponents relies on
 If you have access to additional parallel hardware, you can pass a custom QR-decomposition function that takes advantage of it. For example, if you have a QR-decomposition function called `MyDistributedQRFunc` which takes advantage of additional parallel hardware, you would execute:
 
 ```python
-LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt, qr_func=MyDistributedQRFunc)
+LEs = lyapunov_exponents.estimate_spectrum_in_parallel(
+    jac_vals, dt=dt, qr_func=MyDistributedQRFunc)
 ```
 
 Your custom QR-decomposition function must accept a single torch.float64 tensor of shape `...` x `n_dims` x `n_dims`, where `...` can be any number of dimensions, and return a tuple of torch.float64 tensors, _each_ with the same shape (`...` x `n_dims` x `n_dims`), containing, respectively, the $Q$ and $R$ factors for each matrix in the input tensor.
@@ -179,7 +180,8 @@ Your custom QR-decomposition function must accept a single torch.float64 tensor 
 Our code for parallel estimation of the largest Lyapunov exponent of a dynamical system scales well to higher-dimensional systems without modification, subject to the memory limits of a single cuda device. To overcome single-device memory limits, you must pass a custom parallel scan function that can split the computation over multiple devices -- e.g., by applying parallel scans to different segments of the sequence of Jacobians in different devices, then combining them with a final parallel scan in a single device. For example, if your custom parallel scan is called `MyDistributedScan`, you would execute:
 
 ```python
-LLE = lyapunov_exponents.estimate_largest_in_parallel(jac_vals, dt=dt, scan_func=MyDistributedScan)
+LLE = lyapunov_exponents.estimate_largest_in_parallel(
+    jac_vals, dt=dt, scan_func=MyDistributedScan)
 ```
 
 
