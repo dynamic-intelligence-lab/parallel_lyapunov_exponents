@@ -225,6 +225,31 @@ def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, qr_func=Non
 
 
 @torch.no_grad()
+def estimate_largest_in_parallel(jac_vals, dt):
+    """
+    Estimates largest Lyapunov exponent given a sequence of Jacobian matrix
+    values, applying the parallel expression proposed in "Generalized Orders
+    of Magnitude for Scalable, Parallel, High-Dynamic-Range Computation"
+    (Heinsen and Kozachkov, 2025).
+
+    Inputs:
+        jac_vals: float tensor, seq of R-to-L Jacobians, [..., n_steps, d, d].
+        dt: float scalar, discrete time interval.
+    Output:
+        est_LLE: float tensor, estimated largest Lyapunov exponent, [...].
+    """
+    n_steps, d = (jac_vals.size(-3), jac_vals.size(-1))
+    log_J = goom.log(jac_vals.transpose(-2, -1))                                     # transposed L-to-R log-Jacobians
+    u0 = F.normalize(torch.randn_like(jac_vals[..., 0, :1, :]))                      # [..., 1, d], initial state
+    log_end_state = goom.log_matmul_exp(
+        goom.log(u0),                                                                # [..., 1, d], initial log-state
+        tps.reduce_scan(log_J, goom.log_matmul_exp, dim=-3),                         # [..., d, d], compounded L-to-R
+    )                                                                                # [..., 1, d], ending log-state
+    est_LLE = goom.log_sum_exp(log_end_state * 2, dim=-1).real / (2 * n_steps * dt)  # see Appendix B in paper
+    return est_LLE
+
+
+@torch.no_grad()
 def estimate_spectrum_sequentially(jac_vals, dt, qr_func=None):
     """
     Estimates spectrum of Lyapunov exponents given a sequence of Jacobian matrix
@@ -251,28 +276,3 @@ def estimate_spectrum_sequentially(jac_vals, dt, qr_func=None):
         L = L + R.diagonal(dim1=-2, dim2=-1).abs().log()
     est_LEs = (L / n_steps).flatten() / dt
     return est_LEs
-
-
-@torch.no_grad()
-def estimate_largest_in_parallel(jac_vals, dt):
-    """
-    Estimates largest Lyapunov exponent given a sequence of Jacobian matrix
-    values, applying the parallel expression proposed in "Generalized Orders
-    of Magnitude for Scalable, Parallel, High-Dynamic-Range Computation"
-    (Heinsen and Kozachkov, 2025).
-
-    Inputs:
-        jac_vals: float tensor, seq of R-to-L Jacobians, [..., n_steps, d, d].
-        dt: float scalar, discrete time interval.
-    Output:
-        est_LLE: float tensor, estimated largest Lyapunov exponent, [...].
-    """
-    n_steps, d = (jac_vals.size(-3), jac_vals.size(-1))
-    log_J = goom.log(jac_vals.transpose(-2, -1))                                     # transposed L-to-R log-Jacobians
-    u0 = F.normalize(torch.randn_like(jac_vals[..., 0, :1, :]))                      # [..., 1, d], initial state
-    log_end_state = goom.log_matmul_exp(
-        goom.log(u0),                                                                # [..., 1, d], initial log-state
-        tps.reduce_scan(log_J, goom.log_matmul_exp, dim=-3),                         # [..., d, d], compounded L-to-R
-    )                                                                                # [..., 1, d], ending log-state
-    est_LLE = goom.log_sum_exp(log_end_state * 2, dim=-1).real / (2 * n_steps * dt)  # see Appendix B in paper
-    return est_LLE
