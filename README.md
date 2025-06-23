@@ -162,6 +162,15 @@ print(*benchmarks, sep='\n')
 ```
 
 
+## Configuring Selective Resetting
+
+`lyapunov_exponents.estimate_spectrum_in_parallel()` accepts two arguments that give you fine-grained control over selective resetting of interim deviation states, to prevent them from becoming colinear during application of the parallel prefix scan. The two arguments are:
+
+* `max_cos_sim`: a float specifying the maximum cosine similarity allowed between pairs of interim deviation states on any step. Default: 0.99999, _i.e._, selective resetting will be triggered when the cosine similarity of one or more pairs of vectors exceeds 0.99999.
+
+* `n_above_max`: an integer value specifying the number of pairs of states with cosine similarity above `max_cos_sim` that trigger a selective reset. Default: 1, _i.e._ selective resetting will be triggered if at least one cosine similarity exceeds `max_cos_sim`.
+
+
 ## Scaling to Higher-Dimensional Systems
 
 ### Spectrum of Lyapunov Exponents
