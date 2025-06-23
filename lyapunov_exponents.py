@@ -180,7 +180,7 @@ class _UpdateLogStatesOnRightWithSelectiveResetsOnLeft():
 def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, qr_func=None):
     """
     Estimates spectrum of Lyapunov exponents given a sequence of Jacobian matrix
-    values, applying the parallel algortihm proposed in "Generalized Orders of
+    values, applying the parallel algorithm proposed in "Generalized Orders of
     Magnitude for Scalable, Parallel, High-Dynamic-Range Computation" (Heinsen
     and Kozachkov, 2025).
 
@@ -236,8 +236,8 @@ def estimate_largest_in_parallel(jac_vals, dt, scan_func=None):
         jac_vals: float tensor, seq of R-to-L Jacobians, [..., n_steps, d, d].
         dt: float scalar, discrete time interval.
         scan_func: (optional) function for applying parallel scan. If provided,
-            the function must accept three arguments: a tensor with a sequence
-            of complex tensors, a binary associative function, and an integer
+            the function must accept three arguments: a complex tensor with a
+            sequence of matrices, a binary associative function, and an integer
             indicating the dimension over which to apply the parallel scan.
     Output:
         est_LLE: float tensor, estimated largest Lyapunov exponent, [...].
