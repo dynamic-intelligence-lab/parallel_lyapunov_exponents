@@ -25,7 +25,7 @@ The library provides two methods, `estimate_in_parallel` and `estimate_sequentia
 
 ## Example
 
-We provide a precomputed sequence of Jacobian values, from the well-known [Lorenz system](https://en.wikipedia.org/wiki/Lorenz_system), in the file `lorenz_jac_vals_100_000_steps_with_dt_0.004.pt`. You can quickly check whether the library is working properly by executing the following code:
+We provide a precomputed sequence of Jacobian values, from the well-known [Lorenz system](https://en.wikipedia.org/wiki/Lorenz_system), in the file `lorenz.pt`. You can quickly test that the library is working properly by executing the following code:
 
 ```python
 import torch
@@ -33,30 +33,31 @@ import lyapunov_exponents
 
 DEVICE = 'cuda'  # change as needed
 
-# Load precomputed Jacobian values (for differential equation with respect to state):
-dotf_jac_vals = torch.load('lorenz_jac_vals_100_000_steps_with_dt_0.004.pt')
+# Load sample system data:
+system = torch.load('lorenz.pt')
+jac_vals, dt, n_dims = (system['jac_vals'], system['dt'], system['n_dims'])
 
-# Map to Jacobian values for transition function with respect to state:
-dt = 0.004
-n_dims = dotf_jac_vals.size(-1)
-jac_vals = torch.eye(n_dims) + dotf_jac_vals * dt
+# If necessary, map to Jacobian values of transition func with respect to state
+if system['is_continuous']:
+    jac_vals =  torch.eye(n_dims) + jac_vals * dt  # Euler approximation
 
-# Move Jacobian values to CUDA device for parallel execution:
+# Move Jacobian values to cuda device for parallel execution:
 jac_vals = jac_vals.to(device=DEVICE)
 
-# Estimate the spectrum of Lyapunov exponent in parallel:
+# Estimate the spectrum of Lyapunov exponents in parallel:
 LEs = lyapunov_exponents.estimate_in_parallel(jac_vals, dt=dt)
-
-print("The true Lorenz LEs are:\n[0.905, 0.0, −14.572]\n")
-print("The estimated Lorenz LEs are:, LEs.tolist(), sep='\n')
+print("The estimated Lyapunov Exponents for {} are:\n{}".format(system['name'], LEs.tolist()))
 ```
 
-To estimate the exponents sequentially, use:
+We also provide a method for estimating the spectrum of exponents sequentially:
 
 ```python
 seq_LEs = lyapunov_exponents.estimate_sequentially(jac_vals, dt=dt)
 print("The estimated Lorenz LEs are:, seq_LEs.tolist(), sep='\n')
 ```
+
+For comparison, the true Lyapunov Exponents of Lorenz are estimated to be `[0.905, 0.0, −14.572]`.
+
 
 
 ## Estimating the Largest Lyapunov Exponent in Parallel
@@ -66,44 +67,59 @@ TODO: Add write-up and code for estimating largest Lyapunov exponent.
 
 ## Replicating Published Results
 
-We have tested our parallel algorithm on all dynamical systems in [William Gilpin's repository](https://github.com/GilpinLab/dysts), and confirmed that it estimates Lyapunov exponents in parallel with similar accuracy as sequential estimation, but with execution times that are orders of magnitude faster.
+We have tested our parallel algorithm on all dynamical systems modeled in [William Gilpin's repository](https://github.com/GilpinLab/dysts), and confirmed that our algorithm estimates the spectrum of Lyapunov exponents in parallel with similar accuracy as sequential estimation, but with execution times that are orders of magnitude faster.
 
-To replicate our benchmarks, you must install Gilpin's [code](https://github.com/GilpinLab/dysts), compute trajectories and Jacobian values for 100,000 steps for every system, and store all data in a Python list of dictionaries called `systems`, with each dict having the following four keys: `"name": str`, `"n_dims": int`, `"dt": float`, `"jac_vals": torch.float64`. The Jacobian values should be a `torch.float64` tensor with 100,000 x `n_dims` x `n_dims` elements. Then, execute the following code to run all benchmarks:
+To replicate our benchmarks, you must install Gilpin's [code](https://github.com/GilpinLab/dysts), compute a sequence of 100,000 Jacobian values for every system, and store all data in a Python list of dictionaries called `systems`, with each dictionary having the following keys: `"name": str`, `"is_continuous": bool`, `"n_dims": int`, `"dt": float`, `"jac_vals": torch.float64`. The Jacobian values should be in the form a `torch.float64` tensor with `100,000` x `n_dims` x `n_dims` elements.
+
+Once you have the data ready, execute the following code to run all benchmarks:
 
 ```python
-import tqdm
 import torch
 import torch.utils.benchmark
 import lyapunov_exponents
+from tqdm import tqdm
 
 DEVICE = 'cuda'  # change as needed
 
 benchmarks = []
-for system in tqdm(systems, desc='Computing benchmarks'):
-    dt = (, , system['dt'])
-    jac_vals = torch.eye(system['n_dims'], device=DEVICE) + system['jac_vals'].to(device=DEVICE) * dt
+pbar = tqdm(systems)  # iterator with progress bar
+
+for system in pbar:
+
+    jac_vals, dt, n_dims = (system['jac_vals'], system['dt'], system['n_dims'])
+    if system['is_continuous']:
+        jac_vals =  torch.eye(n_dims) + jac_vals * dt  # Euler approximation
+    jac_vals = jac_vals.to(device=DEVICE)
+
     for n_steps in [10, 100, 1000, 10_000, 100_000]:
-        torch.cuda.empty_cache()
+
+        pbar.set_description("{}, {:,} steps, parallel, 7 runs".format(system['name'], n_steps))
+        parallel_mean_time = torch.utils.benchmark.Timer(
+            stmt='lyapunov_exponents.estimate_in_parallel(jac_vals, dt=dt)',
+            setup='from __main__ import lyapunov_exponents',
+            globals={'jac_vals': jac_vals[:n_steps], 'dt': dt, }
+        ).timeit(7).mean
+
+        pbar.set_description("{}, {:,} steps, sequential, 7 runs".format(system['name'], n_steps))
+        sequential_mean_time = torch.utils.benchmark.Timer(
+                stmt='lyapunov_exponents.estimate_sequentially(jac_vals, dt=dt)',
+                setup='from __main__ import lyapunov_exponents',
+                globals={'jac_vals': jac_vals[:n_steps], 'dt': dt, }
+            ).timeit(7).mean
+
         benchmarks.append({
             'System Name': system['name'],
             'Number of Steps': n_steps,
-            'Parallel Time': torch.utils.benchmark.Timer(
-                stmt='lyapunov_exponents.estimate_in_parallel(jac_vals, dt=dt)',
-                setup='from __main__ import lyapunov_exponents',
-                globals={'jac_vals': jac_vals[:n_steps], 'dt': system['dt'], }
-            ).timeit(7).mean,
-            'Sequential Time': torch.utils.benchmark.Timer(
-                stmt='lyapunov_exponents.estimate_sequentially(jac_vals, dt=dt)',
-                setup='from __main__ import lyapunov_exponents',
-                globals={'jac_vals': jac_vals[:n_steps], 'dt': system['dt'], }
-            ).timeit(7).mean,
+            'Parallel Time (Mean of 7 Runs)': parallel_mean_time,
+            'Sequential Time (Mean of 7 Runs)': sequential_mean_time,
         })
 
-print(benchmarks)
+torch.save(benchmarks, 'benchmarks.pt')
+print(*benchmarks, sep='\n')
 ```
 
 
-## Using Custom QR-Decomposition Functions
+## Scaling to Greater Number of Dimensions with Custom QR-Decomposition Functions
 
 Our library implements a custom QR-decomposition function that scales well for parallel estimation of Lyapunov exponents of _low-dimensional_ systems. As the number of dimensions increases, parallel execution of all QR-decompositions can saturate a single GPU at approximately 100% utilization, requiring additional parallel hardware (_e.g._, more GPUs, more GPU nodes, supercomputing infrastructure) to benefit from parallelization. If you have access to additional hardware, you can specify a custom QR-decomposition function that takes advantage of it. For example, if you name your parallelized QR-decomposition function `MyParallelQRFunc`, you would execute:
 
