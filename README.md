@@ -1,6 +1,8 @@
 # parallel_lyapunov_exponents
 
-Reference implementation of the algorithms and methods we propose for estimating the Lyapunov exponents of dynamical systems via parallell scans, leveraging [generalized orders of magnitude](https://github.com/glassroom/generalized_orders_of_magnitude) (GOOMs) to be able to handle a larger dynamic range of magnitudes than would be possible with torch.float64. Quick example:
+Reference implementation of our algorithm for estimating the spectrum of Lyapunov exponents of dynamical systems via a parallel prefix scan, leveraging [generalized orders of magnitude](https://github.com/glassroom/generalized_orders_of_magnitude) (GOOMs) to be able to handle a larger dynamic range of magnitudes than would be possible with torch.float64, and applying a novel selective-resetting method to prevent state colinearity during the parallel scan.
+
+A quick example is worth a thousand words:
 
 ```python
 import torch
