@@ -96,9 +96,9 @@ print(seq_LEs.tolist())
 
 We have tested our parallel algorithm on all dynamical systems modeled in [William Gilpin's repository](https://github.com/GilpinLab/dysts), and confirmed that our algorithm estimates the spectrum of Lyapunov exponents in parallel with comparable accuracy to sequential estimation, but with execution times that are _orders of magnitude faster_.
 
-To replicate our benchmarks, please install Gilpin's [code](https://github.com/GilpinLab/dysts), compute a sequence of 100,000 Jacobian values for every system modeled by his code, and store the results in a Python list of dictionaries called `systems`, with each dictionary having the following keys:
+To replicate our benchmarks, install Gilpin's [code](https://github.com/GilpinLab/dysts), compute a sequence of 100,000 Jacobian values for every system modeled, and store all results in a Python list of dictionaries called `systems`, with each dictionary having the following keys, with data for one system:
 
-```
+```python
 {
     "name": str,
     "is_continuous": bool,
@@ -108,9 +108,9 @@ To replicate our benchmarks, please install Gilpin's [code](https://github.com/G
 }
 ```
 
-The Jacobian values, `"jac_vals"`, should be in the form a `torch.float64` tensor with `100,000` x `n_dims` x `n_dims` elements. The sample file `lorenz.pt`, in this repository, stores data for one system with this dictionary format.
+The Jacobian values, `"jac_vals"`, should be a tensor with `100,000` x `n_dims` x `n_dims` elements. The sample file `lorenz.pt`, in this repository, stores data for one system with this dictionary format.
 
-Once you have computed data for all systems and stored it in the Python list of dictionaries called `systems`, execute the code below to run all benchmarks. IMPORTANT: The code below will take a LONG time to run, because sequential estimation becomes really slow as the number of time steps increases from 10 to 100,000.
+Once you have computed data for all systems and stored it in a Python list of dictionaries called `systems`, execute the code below to run all benchmarks. IMPORTANT: The code below will take a LONG time to run, because sequential estimation becomes really slow as the number of time steps increases from 10 to 100,000.
 
 ```python
 import torch
