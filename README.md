@@ -125,21 +125,23 @@ benchmarks = []
 pbar = tqdm(systems)  # iterator with progress bar
 for system in pbar:
 
-    jac_vals, dt, n_dims = (system['jac_vals'], system['dt'], system['n_dims'])
+    name, dt, n_dims = (system['name'], system['dt'], system['n_dims'])
+
+    jac_vals = system['jac_vals']
     if system['is_continuous']:
-        jac_vals =  torch.eye(n_dims) + jac_vals * dt  # Euler approximation
+        jac_vals = torch.eye(n_dims) + jac_vals * dt  # Euler approximation
     jac_vals = jac_vals.to(device=DEVICE)
 
     for n_steps in [10, 100, 1000, 10_000, 100_000]:
 
-        pbar.set_description("{}, {:,} steps, parallel, 7 runs".format(system['name'], n_steps))
+        pbar.set_description("{}, {:,} steps, parallel, 7 runs".format(name, n_steps))
         parallel_mean_time = torch.utils.benchmark.Timer(
             stmt='lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)',
             setup='from __main__ import lyapunov_exponents',
             globals={'jac_vals': jac_vals[:n_steps], 'dt': dt, }
         ).timeit(7).mean
 
-        pbar.set_description("{}, {:,} steps, sequential, 7 runs".format(system['name'], n_steps))
+        pbar.set_description("{}, {:,} steps, sequential, 7 runs".format(name, n_steps))
         sequential_mean_time = torch.utils.benchmark.Timer(
                 stmt='lyapunov_exponents.estimate_spectrum_sequentially(jac_vals, dt=dt)',
                 setup='from __main__ import lyapunov_exponents',
@@ -147,7 +149,7 @@ for system in pbar:
             ).timeit(7).mean
 
         benchmarks.append({
-            'System Name': system['name'],
+            'System Name': name,
             'Number of Steps': n_steps,
             'Parallel Time (Mean of 7 Runs)': parallel_mean_time,
             'Sequential Time (Mean of 7 Runs)': sequential_mean_time,
