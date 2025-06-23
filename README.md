@@ -136,14 +136,14 @@ for system in pbar:
 
     for n_steps in [10, 100, 1000, 10_000, 100_000]:
 
-        pbar.set_description("{}, {:,} steps, parallel, 7 runs".format(name, n_steps))
+        pbar.set_description("{}, {:,} steps in parallel, 7 runs".format(name, n_steps))
         parallel_mean_time = torch.utils.benchmark.Timer(
             stmt='lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)',
             setup='from __main__ import lyapunov_exponents',
             globals={'jac_vals': jac_vals[:n_steps], 'dt': dt, }
         ).timeit(7).mean
 
-        pbar.set_description("{}, {:,} steps, sequential, 7 runs".format(name, n_steps))
+        pbar.set_description("{}, {:,} steps sequentially, 7 runs".format(name, n_steps))
         sequential_mean_time = torch.utils.benchmark.Timer(
                 stmt='lyapunov_exponents.estimate_spectrum_sequentially(jac_vals, dt=dt)',
                 setup='from __main__ import lyapunov_exponents',
