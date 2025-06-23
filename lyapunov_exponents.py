@@ -122,62 +122,65 @@ class _UpdateLogStatesOnRightWithSelectiveResetsOnLeft():
 
     Args:
         d: int, size of d x d square matrices.
-        max_cos_sim: float, max cosine similarity that triggers a reset.
         qr_func: function for computing QR-decomposition.
         device: string, torch device.
+        max_cos_sim: float, max cosine similarity allowed between states.
+        n_above_max: (optional) int, number of pairs with cosine similarity
+            above max_cos_sim that trigger a selective reset. Default: 1.
     Inputs:
         stack_on_L: log-tensor of shape [..., 1, d * 2, d].
         stacks_on_R: log-tensor of shape [..., <num>, d * 2, d].
     Output:
         updated_stacks_on_R: log-tensor of shape [..., <num>, d * 2, d].
     """
-    def __init__(self, d, max_cos_sim, qr_func, device):
-        self.d, self.max_cos_sim, self.qr_func = (d, max_cos_sim, qr_func)
+    def __init__(self, d, qr_func, device, max_cos_sim, n_above_max=1):
+        self.d, self.qr_func, self.max_cos_sim, self.n_above_max = \
+            (d, qr_func, max_cos_sim, n_above_max)
         self.log_zeros_atop_I = goom.log(torch.cat([
-            torch.zeros(d, d, device=device),                                              # [d, d]
-            torch.eye(d, device=device),                                                   # [d, d]
-        ], dim=-2))                                                                        # [d * 2, d]
+            torch.zeros(d, d, device=device),                                                # [d, d]
+            torch.eye(d, device=device),                                                     # [d, d]
+        ], dim=-2))                                                                          # [d * 2, d]
 
     def __call__(self, stack_on_L, stacks_on_R):
-        d, max_cos_sim = (self.d, self.max_cos_sim)                                        # for convenience
+        d, max_cos_sim, n_above_max = (self.d, self.max_cos_sim, self.n_above_max)           # for convenience
 
         # Get log_A's and log_B's from left stack:
-        log_A_on_L, log_B_on_L = (stack_on_L[..., :d, :], stack_on_L[..., d:, :])          # [..., 1, d, d] x 2
+        log_A_on_L, log_B_on_L = (stack_on_L[..., :d, :], stack_on_L[..., d:, :])            # [..., 1, d, d] x 2
 
         # Compute cosine similarities between A's vectors:
-        U_on_L = goom.exp(_log_normalize_exp(log_A_on_L, dim=-1))                          # [..., 1, d, d], A's vecs scaled to unit norm
-        cos_sim_mat = U_on_L.matmul(U_on_L.transpose(-2, -1))                              # [..., 1, d, d], gram matrix with cosines
-        idx_above_diag = torch.ones_like(cos_sim_mat).triu(diagonal=1).bool()              # [..., 1, d, d], True above diag, False elsewhere
-        cos_sims = cos_sim_mat.masked_select(idx_above_diag).view(*U_on_L.shape[:-2], -1)  # [..., 1, <num of elements above diag>]
+        U_on_L = goom.exp(_log_normalize_exp(log_A_on_L, dim=-1))                            # [..., 1, d, d], A's vecs scaled to unit norm
+        cos_sim_mat = U_on_L.matmul(U_on_L.transpose(-2, -1))                                # [..., 1, d, d], gram matrix with cosines
+        idx_above_diag = torch.ones_like(cos_sim_mat).triu(diagonal=1).bool()                # [..., 1, d, d], True above diag, False elsewhere
+        cos_sims = cos_sim_mat.masked_select(idx_above_diag).view(*U_on_L.shape[:-2], -1)    # [..., 1, <num of elements above diag>]
 
         # Determine which stacks on the left should be modified:
-        A_on_L_is_near_colinear = (cos_sims > max_cos_sim).any(dim=-1)                     # [..., 1] boolean
-        B_on_L_is_still_zeroed = (goom.exp(log_B_on_L) == 0).all(dim=(-2, -1))             # [..., 1] boolean
-        should_modify_on_L = A_on_L_is_near_colinear & B_on_L_is_still_zeroed              # [..., 1] boolean
+        A_on_L_is_near_colinear = (cos_sims > max_cos_sim).int().sum(dim=-1) >= n_above_max  # [..., 1] boolean
+        B_on_L_is_still_zeroed = (goom.exp(log_B_on_L) == 0).all(dim=(-2, -1))               # [..., 1] boolean
+        should_modify_on_L = A_on_L_is_near_colinear & B_on_L_is_still_zeroed                # [..., 1] boolean
 
         if torch.any(should_modify_on_L):
             # Get subset of unit-length vecs for stacks to be modified on on left:
-            idx = should_modify_on_L[..., None, None].expand_as(U_on_L)                    # [..., 1, d, d]
-            subset_on_L = U_on_L[idx].view(*U_on_L.shape[:-4], -1, 1, d, d)                # [<subset dims>, 1, d, d]
+            idx = should_modify_on_L[..., None, None].expand_as(U_on_L)                      # [..., 1, d, d]
+            subset_on_L = U_on_L[idx].view(*U_on_L.shape[:-4], -1, 1, d, d)                  # [<subset dims>, 1, d, d]
 
             # Obtain orthonormal bases of that subset:
-            Q = self.qr_func(subset_on_L.transpose(-2, -1))[0].transpose(-2, -1)           # [<subset dims>, 1, d, d], L-to-R
+            Q = self.qr_func(subset_on_L.transpose(-2, -1))[0].transpose(-2, -1)             # [<subset dims>, 1, d, d], L-to-R
 
             # Replace subset of left inputs with stacks log-zeros and log-ortho bases:
-            idx = should_modify_on_L[..., None, None].expand_as(stack_on_L)                # [..., 1, d * 2, d]
-            log_zeros_atop_Q = goom.log(F.pad(Q, (0, 0,  d, 0), value=0))                  # [<subset dims>, d * 2, d]
-            stack_on_L[idx] = log_zeros_atop_Q.view(stack_on_L[idx].shape)                 # modify left inputs in-place!
+            idx = should_modify_on_L[..., None, None].expand_as(stack_on_L)                  # [..., 1, d * 2, d]
+            log_zeros_atop_Q = goom.log(F.pad(Q, (0, 0,  d, 0), value=0))                    # [<subset dims>, d * 2, d]
+            stack_on_L[idx] = log_zeros_atop_Q.view(stack_on_L[idx].shape)                   # modify left inputs in-place!
 
         # Compute log(left A @ right A), log(left B @ right A + right B):
-        log_zeros_atop_I = self.log_zeros_atop_I.expand(*stack_on_L.shape[:-2], -1, -1)    # [..., 1, d * 2, d]
-        log_factors_on_L = torch.cat([stack_on_L, log_zeros_atop_I], dim=-1)               # [..., 1, d * 2, d * 2]
-        return goom.log_matmul_exp(log_factors_on_L, stacks_on_R)                          # [..., <num on right>, d * 2, d]
+        log_zeros_atop_I = self.log_zeros_atop_I.expand(*stack_on_L.shape[:-2], -1, -1)      # [..., 1, d * 2, d]
+        log_factors_on_L = torch.cat([stack_on_L, log_zeros_atop_I], dim=-1)                 # [..., 1, d * 2, d * 2]
+        return goom.log_matmul_exp(log_factors_on_L, stacks_on_R)                            # [..., <num on right>, d * 2, d]
 
 
 # Functions for estimating Lyapunov exponents:
 
 @torch.no_grad()
-def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, qr_func=None):
+def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, n_above_max=1, qr_func=None):
     """
     Estimates spectrum of Lyapunov exponents given a sequence of Jacobian matrix
     values, applying the parallel algorithm proposed in "Generalized Orders of
@@ -188,8 +191,9 @@ def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, qr_func=Non
         jac_vals: float tensor, seq of R-to-L Jacobians, [..., n_steps, d, d].
         dt: float scalar, discrete time interval.
         max_cos_sim: (optional) float, max cosine similarity allowed between
-            any pair of deviation vectors on a step, above which all vectors
-            are orthonormalized to avoid colinearity. Default: 0.99999.
+            pairs of deviation vectors on a step. Default: 0.99999.
+        n_above_max: (optional) int, number of pairs with cosine similarity
+            above max_cos_sim that trigger a selective reset. Default: 1.
         qr_func: (optional) function for computing QR-decomposition in parallel.
             If provided, the function must accept torch.float inputs of shape
             [..., d, d] and return a tuple with two outputs of the same shape,
@@ -209,7 +213,7 @@ def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, qr_func=Non
 
     # Apply prefix transform over sequence of stacks with a parallel scan:
     prefix_transform = _UpdateLogStatesOnRightWithSelectiveResetsOnLeft(
-        d, max_cos_sim, qr_func, jac_vals.device)                                         # instance of callable prefix transform
+        d, qr_func, jac_vals.device, max_cos_sim, n_above_max)                            # instance of callable prefix transform
     cum_stacks = _prefix_scan(stacks, prefix_transform, dim=-3)                           # [..., n_steps, d * 2, d]
     log_S = goom.log_add_exp(cum_stacks[..., :d, :], cum_stacks[..., d:, :])              # [..., n_steps, d, d], log-states
 
