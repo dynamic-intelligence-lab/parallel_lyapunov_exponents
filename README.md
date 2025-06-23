@@ -168,7 +168,7 @@ print(*benchmarks, sep='\n')
 
 Our code for parallel estimation of the spectrum of Lyapunov exponents relies on a custom QR-decomposition function that scales well with the number of time steps for _low-dimensional_ systems. As the number of dimensions increases, parallel execution of QR-decompositions can saturate a single GPU to near-100% utilization, requiring additional parallel hardware (_e.g._, additional GPUs, additional GPU nodes, a distributed supercomputer) to benefit from parallelization.
 
-If you have access to additional parallel hardware, you can pass a custom QR-decomposition function that takes advantage of it. For example, if you have a QR-decomposition function called `MyDistributedQRFunc` which takes advantage of additional parallel hardware, you would execute:
+If you have access to additional parallel hardware, you can pass a custom QR-decomposition function that takes advantage of such additional hardware. For example, if you have a QR-decomposition function called `MyDistributedQRFunc` that takes advantage of additional parallel hardware, you would execute:
 
 ```python
 LEs = lyapunov_exponents.estimate_spectrum_in_parallel(
@@ -179,9 +179,9 @@ Your custom QR-decomposition function must accept a single torch.float64 tensor 
 
 ### Largest Lyapunov Exponent
 
-Our code for parallel estimation of the largest Lyapunov exponent of a dynamical system scales well with the number of steps, as well as to higher-dimensional systems, without modification, subject only to the memory limits of a single cuda device. To overcome single-device memory limits, you must pass a custom parallel scan function that can split the computation over multiple devices -- e.g., by applying parallel scans to different segments of the sequence in different devices, then reducing the partial results in a single device.
+Our code for parallel estimation of the largest Lyapunov exponent of a dynamical system scales well with the number of steps, as well as to higher-dimensional systems, without modification, subject only to the memory limits of a single cuda device.
 
-For example, if your custom parallel scan is called `MyDistributedScan`, you would execute:
+If your application requires more memory than you have available in a single device, you can pass a custom parallel scan function that distributes execution of the parallel scan over two or more devices -- e.g., by applying parallel scans to different segments of the sequence in different devices, then applying a parallel scan over the partial results in a single device. For example, if your custom parallel scan function is called `MyDistributedScan`, you would execute:
 
 ```python
 LLE = lyapunov_exponents.estimate_largest_in_parallel(
