@@ -177,7 +177,7 @@ Your custom QR-decomposition function must accept a single torch.float64 tensor 
 
 ### Largest Lyapunov Exponent
 
-Our code for parallel estimation of the largest Lyapunov exponent of a dynamical system scales well with the number of steps, as well as to higher-dimensional systems, without modification, subject only to the memory limits of a single cuda device. To overcome single-device memory limits, you must pass a custom parallel scan function that can split the computation over multiple devices -- e.g., by applying parallel scans to different segments of the sequence of Jacobians in different devices, then combining interim results with a final parallel scan in a single device.
+Our code for parallel estimation of the largest Lyapunov exponent of a dynamical system scales well with the number of steps, as well as to higher-dimensional systems, without modification, subject only to the memory limits of a single cuda device. To overcome single-device memory limits, you must pass a custom parallel scan function that can split the computation over multiple devices -- e.g., by applying parallel scans to different segments of the sequence in different devices, then reducing the partial results in a single device.
 
 For example, if your custom parallel scan is called `MyDistributedScan`, you would execute:
 
