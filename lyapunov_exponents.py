@@ -225,7 +225,7 @@ def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, qr_func=Non
 
 
 @torch.no_grad()
-def estimate_largest_in_parallel(jac_vals, dt):
+def estimate_largest_in_parallel(jac_vals, dt, scan_func=None):
     """
     Estimates largest Lyapunov exponent given a sequence of Jacobian matrix
     values, applying the parallel expression proposed in "Generalized Orders
@@ -235,15 +235,21 @@ def estimate_largest_in_parallel(jac_vals, dt):
     Inputs:
         jac_vals: float tensor, seq of R-to-L Jacobians, [..., n_steps, d, d].
         dt: float scalar, discrete time interval.
+        scan_func: (optional) function for applying parallel scan. If provided,
+            the function must accept three arguments: a tensor with a sequence
+            of complex tensors, a binary associative function, and an integer
+            indicating the dimension over which to apply the parallel scan.
     Output:
         est_LLE: float tensor, estimated largest Lyapunov exponent, [...].
     """
+    if scan_func is None:
+        scan_func = tps.reduce_scan  # use default parallel scan
     n_steps, d = (jac_vals.size(-3), jac_vals.size(-1))
     log_J = goom.log(jac_vals.transpose(-2, -1))                                     # transposed L-to-R log-Jacobians
     u0 = F.normalize(torch.randn_like(jac_vals[..., 0, :1, :]))                      # [..., 1, d], initial state
     log_end_state = goom.log_matmul_exp(
         goom.log(u0),                                                                # [..., 1, d], initial log-state
-        tps.reduce_scan(log_J, goom.log_matmul_exp, dim=-3),                         # [..., d, d], compounded L-to-R
+        scan_func(log_J, goom.log_matmul_exp, dim=-3),                               # [..., d, d], compounded L-to-R
     )                                                                                # [..., 1, d], ending log-state
     est_LLE = goom.log_sum_exp(log_end_state * 2, dim=-1).real / (2 * n_steps * dt)  # see Appendix B in paper
     return est_LLE
