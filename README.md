@@ -98,7 +98,7 @@ print(seq_LEs.tolist())
 
 We have tested our parallel algorithm on all dynamical systems modeled in [William Gilpin's repository](https://github.com/GilpinLab/dysts), and confirmed that our algorithm estimates the spectrum of Lyapunov exponents in parallel with comparable accuracy to sequential estimation, but with execution times that are _orders of magnitude faster_.
 
-To replicate our benchmarks, install Gilpin's [code](https://github.com/GilpinLab/dysts), compute a sequence of 100,000 Jacobian values for every system modeled, and store all results in a Python list of dictionaries `[dict1, dict2, dict3, ...]` called `systems`, with each dictionary in the list having the following keys, with data for one system:
+To replicate our benchmarks, install Gilpin's [code](https://github.com/GilpinLab/dysts), compute a sequence of 100,000 Jacobian values for every system modeled, and store all results in a Python list of dictionaries `[dict1, dict2, dict3, ...]` called `systems`, with each dictionary in the list having the following keys for each system:
 
 ```python
 {
