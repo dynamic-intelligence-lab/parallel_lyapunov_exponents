@@ -160,17 +160,17 @@ print(*benchmarks, sep='\n')
 ```
 
 
-## Scaling Parallel Estimation of Spectrum to Higher-Dimensional Systems
+## Scaling to Higher-Dimensional Systems
 
-Our library implements a custom QR-decomposition function that scales well for parallel estimation of the spectrum of Lyapunov exponents of _low-dimensional_ systems. As the number of dimensions increases, parallel execution of all QR-decompositions can saturate a single GPU to approximately 100% utilization, requiring additional parallel hardware (_e.g._, additional GPUs, additional GPU nodes, distributed supercomputer infrastructure) to benefit from parallelization. If you have access to additional parallel hardware, you can specify a custom QR-decomposition function that takes advantage of it. For example, if you have a QR-decomposition function called `MyDistributedQRFunc` that takes advantage of additional parallel hardware, you would execute:
+Our code for parallel estimation of the largest Lyapunov exponent scales well to higher-dimensional systems without modification.
+
+Our code for parallel estimation of the spectrum of Lyapunov exponents relies on a custom QR-decomposition function that scales well with the number of time steps for _low-dimensional_ systems. As the number of dimensions increases, parallel execution of QR-decompositions can saturate a single GPU to near-100% utilization, requiring additional parallel hardware (_e.g._, additional GPUs, additional GPU nodes, a distributed supercomputer) to benefit from parallelization. If you have access to additional parallel hardware, you can pass a custom QR-decomposition function that takes advantage of it. For example, if you have a QR-decomposition function called `MyDistributedQRFunc` which takes advantage of additional parallel hardware, you would execute:
 
 ```python
 LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt, qr_func=MyDistributedQRFunc)
 ```
 
 Your custom QR-decomposition function must accept a single torch.float64 tensor of shape `...` x `n_dims` x `n_dims`, where `...` can be any number of dimensions, and return a tuple of torch.float64 tensors, _each_ with the same shape (`...` x `n_dims` x `n_dims`), containing, respectively, the $Q$ and $R$ factors for each matrix in the input tensor.
-
-Note: Our code for estimating only the largest Lyapunov exponent scales well to higher-dimensional systems without modification.
 
 
 ## Citing
