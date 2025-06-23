@@ -1,6 +1,6 @@
 # parallel_lyapunov_exponents
 
-Initial reference implementation of the algorithm we propose for estimating the Lyapunov exponents of dynamical systems in parallel, with a prefix scan, leveraging generalized orders of magnitude (GOOMs) to be able to handle a larger dynamic range of magnitudes than would be possible with torch.float64. Example:
+Reference implementation of the algorithms and methods we propose for estimating the Lyapunov exponents of dynamical systems via parallell scans, leveraging generalized orders of magnitude (GOOMs) to be able to handle a larger dynamic range of magnitudes than would be possible with torch.float64. Quick example:
 
 ```python
 import torch
@@ -22,7 +22,7 @@ print(LEs.tolist())
 
 1. Clone this repository.
 
-2. Install all dependencies in `requirements.txt`.
+2. Install all Python dependencies in `requirements.txt`.
 
 3. There is no third step.
 
@@ -37,11 +37,11 @@ import lyapunov_exponents
 
 The library provides three public methods:
 
-* `estimate_spectrum_in_parallel`, for estimating the spectrum of Lyapunov exponents in parallel, applying the parallel algorithm we propose, incorporating our selective-resetting method, as described in our paper;
+* `estimate_spectrum_in_parallel`, for estimating the spectrum of Lyapunov exponents, applying the parallel algorithm we propose, incorporating our selective-resetting method, as described in our paper;
 
-* `estimate_largest_in_parallel`, for estimating only the largest Lyapunov exponent in parallel, applying the expression we algebraically derive in Appendix B of our paper; and
+* `estimate_largest_in_parallel`, for estimating only the largest Lyapunov exponent, applying the parallelizable expression we algebraically derive in Appendix B of our paper; and
 
-* `estimate_spectrum_sequentially`, for estimating the spectrum of Lyapunov exponents sequentially, applying the standard method with sequential QR-decompositions. We provide this method as a convenience, for benchmarking purposes.
+* `estimate_spectrum_sequentially`, for estimating the spectrum of Lyapunov exponents sequentially, applying the standard method with sequential QR-decompositions. We provide this implementation of the standard sequential method as a convenience, for benchmarking purposes.
 
 Below we show how to use all methods to estimate Lyapunov exponents for one dynamical system. Please see each method's docstring for additional details on how to use it.
 
@@ -79,24 +79,26 @@ To estimate only the largest Lyapunov exponents in parallel, use:
 
 ```python
 LLE = lyapunov_exponents.estimate_largest_in_parallel(jac_vals, dt=dt)
-print("Parallel estimated largest Lyapunov exponent for {}:\n{}".format(system['name'], LLE.item()))
+print("Parallel estimated largest Lyapunov exponent for {}:".format(system['name']))
+print(LLE.tolist())
 ```
 
 To estimate the spectrum of Lyapunov exponents sequentially, use:
 
 ```python
 seq_LEs = lyapunov_exponents.estimate_spectrum_sequentially(jac_vals, dt=dt)
-print("Sequential estimated spectrum of Lyapunov exponents for {}:\n{}".format(system['name'], seq_LEs.tolist()))
+print("Sequential estimated spectrum of Lyapunov exponents for {}:".format(system['name']))
+print(seq_LEs.tolist())
 ```
 
 
 ## Replicating Published Results
 
-We have tested our parallel algorithm on all dynamical systems modeled in [William Gilpin's repository](https://github.com/GilpinLab/dysts), and confirmed that our algorithm estimates the spectrum of Lyapunov exponents in parallel with comparable accuracy to sequential estimation, but with execution times that are orders of magnitude faster.
+We have tested our parallel algorithm on all dynamical systems modeled in [William Gilpin's repository](https://github.com/GilpinLab/dysts), and confirmed that our algorithm estimates the spectrum of Lyapunov exponents in parallel with comparable accuracy to sequential estimation, but with execution times that are _orders of magnitude faster_.
 
-To replicate our benchmarks, please install Gilpin's [code](https://github.com/GilpinLab/dysts), compute a sequence of 100,000 Jacobian values for every system, and store the resulting data in a Python list of dictionaries called `systems`, with each dictionary having the following keys: `"name": str`, `"is_continuous": bool`, `"n_dims": int`, `"dt": float`, `"jac_vals": torch.float64`. The Jacobian values, `"jac_vals"`, should be in the form a `torch.float64` tensor with `100,000` x `n_dims` x `n_dims` elements.
+To replicate our benchmarks, please install Gilpin's [code](https://github.com/GilpinLab/dysts), compute a sequence of 100,000 Jacobian values for every system modeled by his code, and store the results in a Python list of dictionaries called `systems`, with each dictionary having the following keys: `"name": str`, `"is_continuous": bool`, `"n_dims": int`, `"dt": float`, `"jac_vals": torch.float64`. The Jacobian values, `"jac_vals"`, should be in the form a `torch.float64` tensor with `100,000` x `n_dims` x `n_dims` elements. The sample file 'lorenz.pt' in this repository, stores data for one system with this dictionary format.
 
-Once you have computed the data for all systems, execute the following code to run all benchmarks:
+Once you have computed data for all systems and stored it in a Python list of dictionaries called `systems`, execute the code below to run all benchmarks. IMPORTANT: The code below will take a LONG time to execute, because sequential estimation becomes really slow as we increase the number of time steps from to `100,000`.
 
 ```python
 import torch
@@ -107,8 +109,8 @@ from tqdm import tqdm
 DEVICE = 'cuda'  # change as needed
 
 benchmarks = []
-pbar = tqdm(systems)  # iterator with progress bar
 
+pbar = tqdm(systems)  # iterator with progress bar
 for system in pbar:
 
     jac_vals, dt, n_dims = (system['jac_vals'], system['dt'], system['n_dims'])
@@ -146,15 +148,15 @@ print(*benchmarks, sep='\n')
 
 ## Scaling Parallel Estimation of Spectrum to Higher-Dimensional Systems
 
-Our library implements a custom QR-decomposition function that scales well for parallel estimation of the spectrum of Lyapunov exponents of _low-dimensional_ systems. As the number of dimensions increases, parallel execution of all QR-decompositions eventually saturates a single GPU at approximately 100% utilization, requiring additional parallel hardware (_e.g._, more GPUs, more GPU nodes, supercomputing infrastructure) to benefit from parallelization. If you have access to additional parallel hardware, you can specify a custom QR-decomposition function that takes advantage of it. For example, if your parallelized QR-decomposition function is called `MyParallelQRFunc`, you would execute:
+Our library implements a custom QR-decomposition function that scales well for parallel estimation of the spectrum of Lyapunov exponents of _low-dimensional_ systems. As the number of dimensions increases, parallel execution of all QR-decompositions can saturate a single GPU to approximately 100% utilization, requiring additional parallel hardware (_e.g._, additional GPUs, additional GPU nodes, distributed supercomputer infrastructure) to benefit from parallelization. If you have access to additional parallel hardware, you can specify a custom QR-decomposition function that takes advantage of it. For example, if you have a QR-decomposition function called `MyDistributedQRFunc` that takes advantage of additional parallel hardware, you would execute:
 
 ```python
-LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt, qr_func=MyParallelQRFunc)
+LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt, qr_func=MyDistributedQRFunc)
 ```
 
-Your custom QR-decomposition function must accept a single torch.float64 tensor of shape `...` x `n_dims` x `n_dims`, where `...` can be any number of dimensions, and return a tuple of torch.float64 tensors, _each_ with the same shape (`...` x `n_dims` x `n_dims`), containing, respectively, the $Q$ and $R$ factors for each matrix.
+Your custom QR-decomposition function must accept a single torch.float64 tensor of shape `...` x `n_dims` x `n_dims`, where `...` can be any number of dimensions, and return a tuple of torch.float64 tensors, _each_ with the same shape (`...` x `n_dims` x `n_dims`), containing, respectively, the $Q$ and $R$ factors for each matrix in the input tensor.
 
-Our parallel method for estimating only the largest Lyapunov exponent scales well to higher-dimensional systems.
+Note: Our code for estimating only the largest Lyapunov exponent scales well to higher-dimensional systems without modification.
 
 
 ## Citing
