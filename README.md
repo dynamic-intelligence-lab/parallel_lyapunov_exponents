@@ -112,7 +112,7 @@ To replicate our benchmarks, install Gilpin's [code](https://github.com/GilpinLa
 
 The Jacobian values, `"jac_vals"`, should be a tensor with `100,000` x `n_dims` x `n_dims` elements. The sample file `lorenz.pt`, in this repository, stores data for one system with this dictionary format.
 
-Once you have computed data for all systems and stored it in a Python list of dictionaries `systems = [dict1, dict2, dict3, ...]`, execute the code below to run all benchmarks. IMPORTANT: The code below takes a LONG time to run, because sequential estimation becomes slower as we increase the number of steps.
+Once you have computed data for all systems and stored it in a Python list of dictionaries `systems = [dict1, dict2, dict3, ...]`, execute the code below to run all benchmarks. IMPORTANT: The code below takes a LONG time to run, because sequential estimation becomes much slower as we increase the number of steps.
 
 ```python
 import torch
@@ -136,14 +136,14 @@ for system in pbar:
 
     for n_steps in [10, 100, 1000, 10_000, 100_000]:
 
-        pbar.set_description("{}, {:,} steps in parallel, 7 runs".format(name, n_steps))
+        pbar.set_description(f"{name}, {n_steps:,} steps in parallel, 7 runs")
         parallel_mean_time = torch.utils.benchmark.Timer(
             stmt='lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)',
             setup='from __main__ import lyapunov_exponents',
             globals={'jac_vals': jac_vals[:n_steps], 'dt': dt, }
         ).timeit(7).mean
 
-        pbar.set_description("{}, {:,} steps sequentially, 7 runs".format(name, n_steps))
+        pbar.set_description(f"{name}, {n_steps:,} steps sequentially, 7 runs")
         sequential_mean_time = torch.utils.benchmark.Timer(
                 stmt='lyapunov_exponents.estimate_spectrum_sequentially(jac_vals, dt=dt)',
                 setup='from __main__ import lyapunov_exponents',
@@ -157,20 +157,20 @@ for system in pbar:
             'Sequential Time (Mean of 7 Runs)': sequential_mean_time,
         })
 
-torch.save(benchmarks, 'benchmarks.pt')
+torch.save(benchmarks, 'benchmarks.pt')  # load with torch.load('benchmarks.pt')
 print(*benchmarks, sep='\n')
 ```
 
 
 ## Configuring Selective Resetting
 
-Selective resetting is a novel method we propose and formulate in our paper, for conditionally resetting interim states in any linear recurrence (diagonal or not, time-variant or not, over $\mathbb{R}$ or other fields) as we compute in parallel via a prefix scan. Our parallel algorithm for estimating the spectrum of Lyapunov exponents uses selective resetting to prevent deviation states from becoming colinear, as we compute all deviation states in parallel via a prefix scan. The implementation of our parallel algorithm in this repository, `lyapunov_exponents.estimate_spectrum_in_parallel()`, accepts two arguments that give you fine-grained control over selective resetting of interim deviation states. The two arguments are:
+Selective resetting is method we propose and formulate in our paper for conditionally resetting interim states in any linear recurrence (diagonal or not, time-variant or not, over $\mathbb{R}$ or other fields) _as we compute in parallel via a prefix scan_. Our parallel algorithm for estimating the spectrum of Lyapunov exponents uses selective resetting to prevent deviation states from becoming colinear, as we compute all deviation states in parallel via a prefix scan. The implementation of our parallel algorithm in this repository, `lyapunov_exponents.estimate_spectrum_in_parallel()`, accepts two arguments that give you fine-grained control over selective resetting of interim deviation states. The two arguments are:
 
-* `max_cos_sim`: a float specifying the maximum cosine similarity allowed between pairs of interim deviation states on any step. Default: 0.99999, _i.e._, selective resetting will be triggered when the cosine similarity of one or more pairs of vectors exceeds 0.99999.
+* `max_cos_sim`: a float specifying the maximum cosine similarity allowed between pairs of interim deviation states on any step. Default: 0.99999, _i.e._, selective resetting will be triggered when the cosine similarity of one or more pairs of state vectors exceeds 0.99999.
 
-* `n_above_max`: an integer value specifying the number of pairs of states with cosine similarity above `max_cos_sim` that trigger a selective reset. Default: 1, _i.e._ selective resetting will be triggered if at least one cosine similarity exceeds `max_cos_sim`.
+* `n_above_max`: an integer value specifying the number of pairs of state vectors with cosine similarity above `max_cos_sim` that trigger a selective reset. Default: 1, _i.e._ selective resetting will be triggered if at least one cosine similarity exceeds `max_cos_sim`.
 
-Appendix C of our paper explains our selective-resetting method informally, with step-by-step examples.
+If you are interested in understanding how our selective-resetting method works, we recommend reading Appendix C of our paper, which explains the intuition behind selective resetting informally, with step-by-step examples.
 
 
 ## Scaling to Higher-Dimensional Systems
