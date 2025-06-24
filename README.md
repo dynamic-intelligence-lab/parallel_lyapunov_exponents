@@ -64,7 +64,7 @@ jac_vals, dt, n_dims = (system['jac_vals'], system['dt'], system['n_dims'])
 
 # If necessary, map to Jacobian values of transition func with respect to state:
 if system['is_continuous']:
-    jac_vals =  torch.eye(n_dims) + jac_vals * dt  # Euler approximation
+    jac_vals = torch.eye(n_dims) + jac_vals * dt  # Euler approximation
 
 # Move Jacobian values to cuda device for parallel execution:
 jac_vals = jac_vals.to(device=DEVICE)
