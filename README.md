@@ -170,7 +170,7 @@ Selective resetting is method we propose and formulate in our paper for conditio
 
 * `n_above_max`: an integer value specifying the number of pairs of state vectors with cosine similarity above `max_cos_sim` that trigger a selective reset. Default: 1, _i.e._ selective resetting will be triggered if at least one cosine similarity exceeds `max_cos_sim`.
 
-If you are interested in understanding how our selective-resetting method works, we recommend reading Appendix C of our paper, which explains the intuition behind selective resetting informally, with step-by-step examples.
+If you are interested in understanding how our selective-resetting method works, we recommend reading Appendix C of our paper, which explains the intuition behind it informally, with step-by-step examples.
 
 
 ## Scaling to Higher-Dimensional Systems
