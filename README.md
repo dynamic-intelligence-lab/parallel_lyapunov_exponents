@@ -1,8 +1,6 @@
 # parallel_lyapunov_exponents
 
-Reference implementation of our algorithm for estimating the spectrum of Lyapunov exponents of dynamical systems via a parallel prefix scan, leveraging [generalized orders of magnitude](https://github.com/glassroom/generalized_orders_of_magnitude) (GOOMs) to be able to handle a larger dynamic range of magnitudes than would be possible with torch.float64, and applying a novel selective-resetting method to prevent state colinearity during the parallel scan.
-
-A quick example is worth a thousand words:
+Reference implementation of our algorithm for estimating the spectrum of Lyapunov exponents of dynamical systems in parallel, via a prefix scan. A quick example is worth a thousand words:
 
 ```python
 import torch
@@ -19,6 +17,8 @@ jac_vals = jac_vals.to(device=DEVICE)
 LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)
 print(LEs.tolist())
 ```
+
+Our parallel algorithm leverages [generalized orders of magnitude](https://github.com/glassroom/generalized_orders_of_magnitude) (GOOMs) to be able to handle a larger dynamic range of magnitudes than would be possible with torch.float64, and applies a novel selective-resetting method to prevent deviation states from becoming colinear, as we compute all states in parallel.
 
 ## Installing
 
@@ -162,15 +162,15 @@ print(*benchmarks, sep='\n')
 ```
 
 
-## Configuring Selective Resetting
+## Configuring Selective Resetting of Interim Deviation States
 
-Selective resetting is method we propose and formulate in our paper for conditionally resetting interim states in any linear recurrence (diagonal or not, time-variant or not, over $\mathbb{R}$ or other fields) _as we compute in parallel via a prefix scan_. Our parallel algorithm for estimating the spectrum of Lyapunov exponents uses selective resetting to prevent deviation states from becoming colinear, as we compute all deviation states in parallel via a prefix scan. The implementation of our parallel algorithm in this repository, `lyapunov_exponents.estimate_spectrum_in_parallel()`, accepts two arguments that give you fine-grained control over selective resetting of interim deviation states. The two arguments are:
+Selective resetting is a method we propose and formulate in our paper for conditionally resetting interim states in any linear recurrence (diagonal or not, time-variant or not, over $\mathbb{R}$ or other fields) _as we compute in parallel via a prefix scan_. Our parallel algorithm for estimating the spectrum of Lyapunov exponents uses selective resetting to prevent deviation states from becoming colinear, as we compute all deviation states in parallel via a prefix scan. The implementation of our parallel algorithm in this repository, `lyapunov_exponents.estimate_spectrum_in_parallel()`, accepts two arguments that give you fine-grained control over selective resetting of interim deviation states. The two arguments are:
 
 * `max_cos_sim`: a float specifying the maximum cosine similarity allowed between pairs of interim deviation states on any step. Default: 0.99999, _i.e._, selective resetting will be triggered when the cosine similarity of one or more pairs of state vectors exceeds 0.99999.
 
 * `n_above_max`: an integer value specifying the number of pairs of state vectors with cosine similarity above `max_cos_sim` that trigger a selective reset. Default: 1, _i.e._ selective resetting will be triggered if at least one cosine similarity exceeds `max_cos_sim`.
 
-If you are interested in understanding how our selective-resetting method works, we recommend reading Appendix C of our paper, which explains the intuition behind it informally, with step-by-step examples.
+If you are interested in understanding how our selective-resetting method works, we recommend reading Appendix C of our paper, which explains the intuition behind it informally, with step-by-step examples. We also recommend taking a look at [https://github.com/glassroom/selective_resetting/](https://github.com/glassroom/selective_resetting/), an implementation of selective resetting over real numbers instead of GOOMs.
 
 
 ## Scaling to Higher-Dimensional Systems
