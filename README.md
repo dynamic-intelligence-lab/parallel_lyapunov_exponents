@@ -164,13 +164,18 @@ print(*benchmarks, sep='\n')
 
 ## Configuring Selective Resetting of Interim Deviation States
 
-Selective resetting is a method we propose and formulate in our paper for conditionally resetting interim states in any linear recurrence (diagonal or not, time-variant or not, over $\mathbb{R}$ or other fields) _as we compute in parallel via a prefix scan_. Our parallel algorithm for estimating the spectrum of Lyapunov exponents uses selective resetting to prevent deviation states from becoming colinear, as we compute all deviation states in parallel via a prefix scan. The implementation of our parallel algorithm in this repository, `lyapunov_exponents.estimate_spectrum_in_parallel()`, accepts two arguments that give you fine-grained control over selective resetting of interim deviation states. The two arguments are:
+Selective resetting is a method we propose and formulate in our paper for conditionally resetting interim states in any linear recurrence (diagonal or not, time-variant or not, over $\mathbb{R}$ or other fields) _as we compute in parallel via a prefix scan_.
+
+Our parallel algorithm for estimating the spectrum of Lyapunov exponents uses selective resetting to prevent deviation states from becoming colinear, as we compute all deviation states in parallel via a prefix scan. The implementation of our parallel algorithm in this repository, `lyapunov_exponents.estimate_spectrum_in_parallel()`, accepts two arguments that give you fine-grained control over selective resetting of interim deviation states. The two arguments are:
 
 * `max_cos_sim`: a float specifying the maximum cosine similarity allowed between pairs of interim deviation states on any step. Default: 0.99999, _i.e._, selective resetting will be triggered when the cosine similarity of one or more pairs of state vectors exceeds 0.99999.
 
 * `n_above_max`: an integer value specifying the number of pairs of state vectors with cosine similarity above `max_cos_sim` that trigger a selective reset. Default: 1, _i.e._ selective resetting will be triggered if at least one cosine similarity exceeds `max_cos_sim`.
 
-If you are interested in understanding how our selective-resetting method works, we recommend reading Appendix C of our paper, which explains the intuition behind it informally, with step-by-step examples. We also recommend taking a look at [https://github.com/glassroom/selective_resetting/](https://github.com/glassroom/selective_resetting/), an implementation of selective resetting over real numbers instead of GOOMs.
+
+### More Information on Selective Resetting
+
+If you are interested in understanding how our selective-resetting method works, we recommend taking a look at [https://github.com/glassroom/selective_resetting/](https://github.com/glassroom/selective_resetting/), an implementation of selective resetting over real numbers instead of GOOMs. We also recommend reading Appendix C of our paper, which explains the intuition behind selective resetting informally, with step-by-step examples.
 
 
 ## Scaling to Higher-Dimensional Systems
