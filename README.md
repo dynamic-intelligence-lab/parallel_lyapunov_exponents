@@ -1,6 +1,6 @@
 # parallel_lyapunov_exponents
 
-Reference implementation of our algorithm for estimating the spectrum of Lyapunov exponents of dynamical systems in parallel, via a prefix scan. A quick example is worth a thousand words:
+Reference implementation of our algorithm for estimating the spectrum of Lyapunov exponents of dynamical systems in parallel, via a prefix scan, for PyTorch. A quick example is worth a thousand words:
 
 ```python
 import torch
