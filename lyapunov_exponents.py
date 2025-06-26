@@ -24,7 +24,7 @@ def _log_normalize_exp(log_x, dim):
 
 def _broadcastable_householder(x):
     """
-    Householder transformation of colum vector x, with shape [..., d, 1],
+    Householder transformation of column vector x, with shape [..., d, 1],
     broadcasting over preceding dimensions. Based on code from [1] and [2].
 
     [1] https://stackoverflow.com/questions/53489237
@@ -250,7 +250,7 @@ def estimate_largest_in_parallel(jac_vals, dt, scan_func=None):
         scan_func = tps.reduce_scan  # use default parallel scan
     n_steps, d = (jac_vals.size(-3), jac_vals.size(-1))
     log_J = goom.log(jac_vals.transpose(-2, -1))                                     # transposed L-to-R log-Jacobians
-    u0 = F.normalize(torch.randn_like(jac_vals[..., 0, :1, :]))                      # [..., 1, d], initial state
+    u0 = F.normalize(torch.randn_like(jac_vals[..., 0, :1, :]), dim=-1)              # [..., 1, d], initial state
     log_end_state = goom.log_matmul_exp(
         goom.log(u0),                                                                # [..., 1, d], initial log-state
         scan_func(log_J, goom.log_matmul_exp, dim=-3),                               # [..., d, d], compounded L-to-R
