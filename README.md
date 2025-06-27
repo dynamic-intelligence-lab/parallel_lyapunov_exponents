@@ -197,14 +197,14 @@ Your custom QR-decomposition function must accept a single torch.float64 tensor 
 
 Our code for parallel estimation of the largest Lyapunov exponent of a dynamical system, implementing the expression we derive in Appendix B of our paper, scales well with the number of steps and the number of dimensions, without modification, subject only to the memory limits of a single cuda device.
 
-If your application requires more memory than you have available in a single device, you can pass a custom parallel scan function that distributes execution of the parallel scan over multiple devices -- e.g., by applying parallel scans to different segments of the sequence in different devices, then applying a parallel scan over the partial results in a single device. For example, if your custom parallel scan function is called `MyDistributedScan`, you would execute:
+If your application requires more memory than you have available in a single device, you can pass a custom function that distributes execution of the parallel scan over multiple devices -- e.g., by applying parallel scans to different segments of the sequence in different devices, then applying a parallel scan over the partially reduced results in a single device. For example, if your custom parallel scan function is called `MyDistributedReduceScan`, you would execute:
 
 ```python
 LLE = lyapunov_exponents.estimate_largest_in_parallel(
-    jac_vals, dt=dt, scan_func=MyDistributedScan)
+    jac_vals, dt=dt, reduce_scan_func=MyDistributedReduceScan)
 ```
 
-Your custom parallel scan function must accept three arguments: (1) a complex tensor with a sequence of matrices of shape `...` x `n_steps` x `n_dims` x `n_dims`, where `...` can be any number of preceding dimensions and `n_steps` may vary, (2) a binary associative function (our code will pass `goom.log_matmul_exp`), and (3) an integer indicating the dimension over which to apply the parallel scan.
+Your custom `reduce_scan_func` must accept three arguments: (1) a complex tensor with a sequence of matrices of shape `...` x `n_steps` x `n_dims` x `n_dims`, where `...` can be any number of preceding dimensions and `n_steps` may vary, (2) a binary associative function (our code will pass `goom.log_matmul_exp`), and (3) an integer indicating the dimension over which to apply the parallel scan. Your custom `reduce_scan_func` must return a complex tensor of shape `...` x `n_dims` x `n_dims` with the reduced result. 
 
 
 ## Citing
