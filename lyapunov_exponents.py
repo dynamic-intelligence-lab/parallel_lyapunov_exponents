@@ -228,10 +228,10 @@ def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, n_above_max
 
     # Get ortho bases of exponentiated log-states:
     U = goom.exp(_log_normalize_exp(log_S, dim=-1))                                       # [..., n_steps, d, d], state vecs scaled to unit norm
-    inp_states, _ = qr_func(U.transpose(-2, -1))                                          # [..., n_steps, d, d], R-to-L orthonormal bases (Q's)
+    inp_Q, _ = qr_func(U.transpose(-2, -1))                                               # [..., n_steps, d, d], R-to-L orthonormal bases (Q's)
 
     # Apply jac_vals to prev steps' ortho bases and estimate exponents:
-    out_states = jac_vals @ inp_states.to(jac_vals.dtype)                                 # [..., n_steps, d, d]
+    out_states = jac_vals @ inp_Q.to(jac_vals.dtype)                                      # [..., n_steps, d, d]
     _, out_R = qr_func(out_states)                                                        # [..., n_steps, d, d]
     est_LEs = out_R.diagonal(dim1=-2, dim2=-1).abs().log().mean(dim=-2) / dt              # [..., d]
     return est_LEs
