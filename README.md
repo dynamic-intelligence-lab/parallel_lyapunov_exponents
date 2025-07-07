@@ -14,11 +14,11 @@ if system['is_continuous']:
     jac_vals = torch.eye(n_dims) + jac_vals * dt  # Euler approximation
 jac_vals = jac_vals.to(device=DEVICE)
 
-LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)  # fast!
-print('Estimated Lyapunov exponents:', LEs.tolist())
+est_LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)  # fast!
+print('Estimated Lyapunov exponents:', est_LEs.tolist())
 
-LLE = lyapunov_exponents.estimate_largest_in_parallel(jac_vals, dt=dt)   # faster!
-print('Estimated largest Lyapunov exponent:', LLE.item())
+est_LLE = lyapunov_exponents.estimate_largest_in_parallel(jac_vals, dt=dt)   # faster!
+print('Estimated largest Lyapunov exponent:', est_LLE.item())
 
 print('Compare to true exponents of Lorenz: [0.905, 0.0, -14.572]')
 ```
@@ -75,9 +75,9 @@ if system['is_continuous']:
 jac_vals = jac_vals.to(device=DEVICE)
 
 # Estimate the spectrum of Lyapunov exponents in parallel:
-LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)
+est_LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)
 print("Estimated spectrum of Lyapunov exponents for {}:".format(system['name']))
-print(LEs.tolist())
+print(est_LEs.tolist())
 ```
 
 For comparison, the true spectrum of Lorenz is estimated to be `[0.905, 0.0, −14.572]`.
@@ -85,16 +85,16 @@ For comparison, the true spectrum of Lorenz is estimated to be `[0.905, 0.0, −
 To estimate only the largest Lyapunov exponents in parallel, which is faster, use:
 
 ```python
-LLE = lyapunov_exponents.estimate_largest_in_parallel(jac_vals, dt=dt)
+est_LLE = lyapunov_exponents.estimate_largest_in_parallel(jac_vals, dt=dt)
 print("Parallel estimated largest Lyapunov exponent for {}:".format(system['name']))
-print(LLE.tolist())
+print(est_LLE.tolist())
 ```
 
 To estimate the spectrum of Lyapunov exponents sequentially, use:
 
 ```python
 seq_LEs = lyapunov_exponents.estimate_spectrum_sequentially(jac_vals, dt=dt)
-print("Sequential estimated spectrum of Lyapunov exponents for {}:".format(system['name']))
+print("Sequentially estimated spectrum of Lyapunov exponents for {}:".format(system['name']))
 print(seq_LEs.tolist())
 ```
 
@@ -192,7 +192,7 @@ Our code for parallel estimation of the spectrum of Lyapunov exponents relies on
 If you have access to additional parallel hardware, you can pass a custom QR-decomposition function that takes advantage of such additional hardware. For example, if you have a QR-decomposition function called `MyDistributedQRFunc` that takes advantage of additional parallel hardware, you would execute:
 
 ```python
-LEs = lyapunov_exponents.estimate_spectrum_in_parallel(
+est_LEs = lyapunov_exponents.estimate_spectrum_in_parallel(
     jac_vals, dt=dt, qr_func=MyDistributedQRFunc)
 ```
 
@@ -201,7 +201,7 @@ Your custom QR-decomposition function must accept a single torch.float64 tensor 
 If execution requires more memory than you have available in a single device, you can also pass a custom function that distributes execution of the parallel prefix scan over multiple devices. For example, if your custom parallel prefix scan function is called `MyDistributedPrefixScan`, you would execute:
 
 ```python
-LLE = lyapunov_exponents.estimate_largest_in_parallel(
+est_LEs = lyapunov_exponents.estimate_spectrum_in_parallel(
     jac_vals, dt=dt, qr_func=MyDistributedQRFunc, prefix_scan_func=MyDistributedPrefixScan)
 ```
 
@@ -215,7 +215,7 @@ Our code for parallel estimation of the largest Lyapunov exponent of a dynamical
 If execution requires more memory than you have available in a single device, you can pass a custom function that distributes execution of the parallel scan over multiple devices -- e.g., by applying parallel scans to different segments of the sequence in different devices, then applying a parallel scan over the partially reduced results in a single device. For example, if your custom parallel scan function is called `MyDistributedReduceScan`, you would execute:
 
 ```python
-LLE = lyapunov_exponents.estimate_largest_in_parallel(
+est_LLE = lyapunov_exponents.estimate_largest_in_parallel(
     jac_vals, dt=dt, reduce_scan_func=MyDistributedReduceScan)
 ```
 
