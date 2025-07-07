@@ -48,7 +48,7 @@ The library provides three public methods:
 
 * `estimate_largest_in_parallel`, for estimating only the largest Lyapunov exponent, applying the parallelizable expression we algebraically derive in Appendix B of our paper; and
 
-* `estimate_spectrum_sequentially`, for estimating the spectrum of Lyapunov exponents sequentially, applying the standard method with sequential QR-decompositions. We provide this implementation of the standard sequential method as a convenience, for benchmarking purposes.
+* `estimate_spectrum_sequentially`, for estimating the spectrum of Lyapunov exponents sequentially, applying the standard method with sequential QR-decompositions. We provide this method as a convenience, so you can benchmark it against the parallel methods.
 
 Below we show how to use all methods to estimate Lyapunov exponents for one dynamical system. Please see each method's docstring for additional details on how to use it.
 
