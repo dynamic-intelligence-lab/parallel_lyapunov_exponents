@@ -14,8 +14,13 @@ if system['is_continuous']:
     jac_vals = torch.eye(n_dims) + jac_vals * dt  # Euler approximation
 jac_vals = jac_vals.to(device=DEVICE)
 
-LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)
-print(LEs.tolist())  # compare to true spectrum of Lorenz: [0.905, 0.0, −14.572]
+LEs = lyapunov_exponents.estimate_spectrum_in_parallel(jac_vals, dt=dt)  # fast!
+print('Estimated Lyapunov exponents:', LEs.tolist())
+
+LLE = lyapunov_exponents.estimate_largest_in_parallel(jac_vals, dt=dt)   # faster!
+print('Estimated largest Lyapunov exponent:', LLE.item())
+
+print('Compare to true exponents of Lorenz: [0.905, 0.0, -14.572]')
 ```
 
 Our parallel algorithm leverages [generalized orders of magnitude](https://github.com/glassroom/generalized_orders_of_magnitude) (GOOMs) to be able to handle a larger dynamic range of magnitudes than would be possible with torch.float64, and applies a novel selective-resetting method to prevent deviation states from becoming colinear, as we compute all states in parallel.
@@ -77,7 +82,7 @@ print(LEs.tolist())
 
 For comparison, the true spectrum of Lorenz is estimated to be `[0.905, 0.0, −14.572]`.
 
-To estimate only the largest Lyapunov exponents in parallel, use:
+To estimate only the largest Lyapunov exponents in parallel, which is faster, use:
 
 ```python
 LLE = lyapunov_exponents.estimate_largest_in_parallel(jac_vals, dt=dt)
@@ -200,12 +205,12 @@ LLE = lyapunov_exponents.estimate_largest_in_parallel(
     jac_vals, dt=dt, qr_func=MyDistributedQRFunc, prefix_scan_func=MyDistributedPrefixScan)
 ```
 
-Your custom `prefix_scan_func` must accept three arguments: (1) a complex tensor with a sequence of matrices of shape `...` x `n_steps` x `n_dims` x `n_dims`, where `...` can be any number of preceding dimensions and `n_steps` may vary, (2) a binary associative function (our code will pass `goom.log_matmul_exp`), and (3) an integer indicating the dimension over which to apply the parallel scan. Your custom `reduce_scan_func` must return a complex tensor of shape `...` x `n_steps` x `n_dims` x `n_dims` with the cumulative matrix states. 
+Your custom `prefix_scan_func` must accept three arguments: (1) a complex tensor with a sequence of matrices of shape `...` x `n_steps` x `n_rows` x `n_cols`, where `...` can be any number of preceding dimensions and `n_steps` may vary, (2) a binary associative function (our code will pass one), and (3) an integer indicating the dimension over which to apply the parallel scan. Your custom `reduce_scan_func` must return a complex tensor of shape `...` x `n_steps` x `n_rows` x `n_cols` with the cumulative matrix states. 
 
 
 ### Largest Lyapunov Exponent of Higher-Dimensional Systems
 
-Our code for parallel estimation of the largest Lyapunov exponent of a dynamical system, implementing the expression we derive in Appendix B of our paper, scales well with the number of steps and the number of dimensions, without modification, subject only to the memory limits of a single cuda device.
+Our code for parallel estimation of the largest Lyapunov exponent of a dynamical system, implementing the expression we derive in Appendix B of our paper, is not only faster; it also scales well with the number of steps and the number of dimensions, without modification, subject only to the memory limits of a single cuda device.
 
 If execution requires more memory than you have available in a single device, you can pass a custom function that distributes execution of the parallel scan over multiple devices -- e.g., by applying parallel scans to different segments of the sequence in different devices, then applying a parallel scan over the partially reduced results in a single device. For example, if your custom parallel scan function is called `MyDistributedReduceScan`, you would execute:
 
