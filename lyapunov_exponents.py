@@ -1,3 +1,5 @@
+# coding: utf-8
+
 import math
 import torch
 import torch.nn.functional as F
@@ -180,7 +182,7 @@ class _UpdateLogStatesOnRightWithSelectiveResetsOnLeft():
 # Functions for estimating Lyapunov exponents:
 
 @torch.no_grad()
-def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, n_above_max=1, qr_func=None):
+def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, n_above_max=1, qr_func=None, prefix_scan_func=None):
     """
     Estimates spectrum of Lyapunov exponents given a sequence of Jacobian matrix
     values, applying the parallel algorithm proposed in "Generalized Orders of
@@ -198,12 +200,19 @@ def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, n_above_max
             If provided, the function must accept torch.float inputs of shape
             [..., d, d] and return a tuple with two outputs of the same shape,
             [..., d, d], equal to the Q and R matrix factors, respectively.
+        prefix_scan_func: (optional) function that applies parallel prefix scan.
+            If provided, the function must accept three arguments: a *complex*
+            tensor with a sequence of matrices, a binary associative function,
+            and an integer indicating the dimension over which to apply the
+            parallel prefix scan. The function must return a *complex* tensor.
     Output:
         est_LEs: float tensor, estimated spectra of Lyapunov exponents [..., d].
     """
     d = jac_vals.size(-1)
     if qr_func is None:
         qr_func = _broadcastable_qr  # use built-in QR-decomposition function
+    if prefix_scan_func is None:
+        prefix_scan_func = _prefix_scan  # use built-in prefix scan function
 
     # Stack log-Jacobians atop log-zeroed-biases, excluding last step:
     transp_jac_vals_except_last = jac_vals[..., :-1, :, :].transpose(-2, -1)              # [..., n_steps - 1, d, d], L-to-R
@@ -214,7 +223,7 @@ def estimate_spectrum_in_parallel(jac_vals, dt, max_cos_sim=0.99999, n_above_max
     # Apply prefix transform over sequence of stacks with a parallel scan:
     prefix_transform = _UpdateLogStatesOnRightWithSelectiveResetsOnLeft(
         d, qr_func, jac_vals.device, max_cos_sim, n_above_max)                            # instance of callable prefix transform
-    cum_stacks = _prefix_scan(stacks, prefix_transform, dim=-3)                           # [..., n_steps, d * 2, d]
+    cum_stacks = prefix_scan_func(stacks, prefix_transform, dim=-3)                       # [..., n_steps, d * 2, d]
     log_S = goom.log_add_exp(cum_stacks[..., :d, :], cum_stacks[..., d:, :])              # [..., n_steps, d, d], log-states
 
     # Get ortho bases of exponentiated log-states:
@@ -242,8 +251,8 @@ def estimate_largest_in_parallel(jac_vals, dt, reduce_scan_func=None):
         reduce_scan_func: (optional) function that applies parallel reduce scan.
             If provided, the function must accept three arguments: a *complex*
             tensor with a sequence of matrices, a binary associative function,
-            and an integer  indicating the dimension over which to apply the
-            parallel scan. The function must return the reduced tensor.
+            and an integer indicating the dimension over which to apply the
+            parallel scan. The function must return a *complex* tensor.
     Output:
         est_LLE: float tensor, estimated largest Lyapunov exponent, [...].
     """
