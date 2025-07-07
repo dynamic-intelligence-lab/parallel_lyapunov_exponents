@@ -114,12 +114,15 @@ class _UpdateLogStatesOnRightWithSelectiveResetsOnLeft():
     log_A's and log_B's on the right, with shape [..., <num on right>, d, d],
     computes log(left A @ right A's), log(left B @ right A's + right B's),
     over generalized orders of magnitude. However, *before* the computation,
-    if the cosine similarity of any pair of (exponentiated) vectors in a left
-    log_A exceeds `max_cos_sim` and the corresponding left log_B is all log-
-    zeros, we first modify that left log_A *in-place* to be log-zeros and that
-    left log_B *in-place* to be log(orthonormal basis of the left A, obtained
-    via QR- decomposition), resetting the sequence with (log-) orthonormal
-    biases at that step. Inputs and outputs consist of log_A's stacked atop
+    if the cosine similarity of `n_above_max` or more pairs of (exponentiated)
+    vectors in a left log_A exceeds `max_cos_sim` and the corresponding left
+    log_B is all log-zeros, we first modify that left log_A *in-place* to be
+    log-zeros and that left log_B *in-place* to be a log-orthonormal basis of
+    the left A, obtained via QR- decomposition), resetting the sequence with
+    log-orthonormal biases at that step, as described in "Generalized Orders
+    of Magnitude for Scalable, Parallel, High-Dynamic-Range Computation"
+    (Heinsen and Kozachkov, 2025). Inputs consist of log_A's stacked atop
+    log_B's, and outputs consists of cumul. log_A's stacked atop cumulative
     log_B's, i.e., each step's input and output stack has shape [d * 2, d].
 
     Args:
