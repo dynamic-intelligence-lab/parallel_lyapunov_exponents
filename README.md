@@ -86,11 +86,11 @@ To estimate only the largest Lyapunov exponents in parallel, which is faster, us
 
 ```python
 est_LLE = lyapunov_exponents.estimate_largest_in_parallel(jac_vals, dt=dt)
-print("Parallel estimated largest Lyapunov exponent for {}:".format(system['name']))
-print(est_LLE.tolist())
+print("Estimated largest Lyapunov exponent for {}:".format(system['name']))
+print(est_LLE.item())
 ```
 
-To estimate the spectrum of Lyapunov exponents sequentially, use:
+To estimate the spectrum of Lyapunov exponents sequentially, which is slower, use:
 
 ```python
 seq_LEs = lyapunov_exponents.estimate_spectrum_sequentially(jac_vals, dt=dt)
