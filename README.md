@@ -23,7 +23,7 @@ print('Estimated largest Lyapunov exponent:', est_LLE.item())
 print('Compare to true exponents of Lorenz: [0.905, 0.0, -14.572]')
 ```
 
-Our parallel algorithm leverages [generalized orders of magnitude](https://github.com/glassroom/generalized_orders_of_magnitude) (GOOMs) to be able to handle a larger dynamic range of magnitudes than would be possible with torch.float64, and applies a novel selective-resetting method to prevent deviation states from becoming colinear, as we compute all states in parallel.
+Our parallel algorithm leverages [generalized orders of magnitude](https://github.com/glassroom/generalized_orders_of_magnitude) (GOOMs) to be able to handle a larger dynamic range of magnitudes than is possible with floating-point formats, and applies a novel selective-resetting method to prevent deviation states from becoming colinear, as we compute all states in parallel.
 
 ## Installing
 
@@ -55,7 +55,7 @@ Below we show how to use all methods to estimate Lyapunov exponents for one dyna
 
 ## Example
 
-We provide a precomputed sequence with 500,000 Jacobian values from the well-known [Lorenz system](https://en.wikipedia.org/wiki/Lorenz_system) in the file `lorenz.pt`. You can quickly test that the library is working properly by executing the following code:
+We provide a precomputed sequence with 1 million Jacobian values from the well-known [Lorenz system](https://en.wikipedia.org/wiki/Lorenz_system) in the file `lorenz.pt`. You can quickly test that the library is working properly by executing the following code:
 
 ```python
 import torch
