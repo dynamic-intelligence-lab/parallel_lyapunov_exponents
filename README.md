@@ -137,7 +137,7 @@ for system in pbar:
     jac_vals = system['jac_vals']
     if system['is_continuous']:
         jac_vals = torch.eye(n_dims) + jac_vals * dt  # Euler approximation
-    jac_vals = jac_vals.to(device=DEVICE)
+    jac_vals = jac_vals.to(dtype=torch.float64, device=DEVICE)
 
     for n_steps in [10, 100, 1000, 10_000, 100_000]:
 
