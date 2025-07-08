@@ -8,7 +8,7 @@ import lyapunov_exponents
 
 DEVICE = 'cuda'  # change as needed
 
-system = torch.load('lorenz.pt')
+system = torch.load('lorenz_1M_steps.pt')  # data for 1M steps
 jac_vals, dt, n_dims = (system['jac_vals'], system['dt'], system['n_dims'])
 if system['is_continuous']:
     jac_vals = torch.eye(n_dims) + jac_vals * dt  # Euler approximation
@@ -55,7 +55,7 @@ Below we show how to use all methods to estimate Lyapunov exponents for one dyna
 
 ## Example
 
-We provide a precomputed sequence with one million Jacobian values from the well-known [Lorenz system](https://en.wikipedia.org/wiki/Lorenz_system) in the file `lorenz.pt`. You can quickly test that the library is working properly by executing the following code:
+We provide a precomputed sequence with one million Jacobian values from the well-known [Lorenz system](https://en.wikipedia.org/wiki/Lorenz_system) in the file `lorenz_1M_steps.pt`. You can quickly test that the library is working properly by executing the following code:
 
 ```python
 import torch
@@ -63,8 +63,8 @@ import lyapunov_exponents
 
 DEVICE = 'cuda'  # change as needed
 
-# Load sample system data:
-system = torch.load('lorenz.pt')
+# Load sample system data with 1M steps:
+system = torch.load('lorenz_1M_steps.pt')
 jac_vals, dt, n_dims = (system['jac_vals'], system['dt'], system['n_dims'])
 
 # If necessary, map to Jacobian values of transition func with respect to state:
@@ -115,7 +115,7 @@ To replicate our benchmarks, install Gilpin's [code](https://github.com/GilpinLa
 }
 ```
 
-The Jacobian values, `"jac_vals"`, should be a tensor with `100,000` x `n_dims` x `n_dims` elements. The sample file `lorenz.pt`, in this repository, stores data for one system with this dictionary format.
+The Jacobian values, `"jac_vals"`, should be a tensor with `100,000` x `n_dims` x `n_dims` elements. The file `lorenz_1M_steps.pt`, in this repository, stores data for one system with this dictionary format.
 
 Once you have computed data for all systems and stored it in a Python list of dictionaries `systems = [dict1, dict2, dict3, ...]`, execute the code below to run all benchmarks. IMPORTANT: The code below takes a LONG time to run, because sequential estimation becomes much slower as we increase the number of steps.
 
