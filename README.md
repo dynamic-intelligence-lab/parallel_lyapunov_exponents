@@ -55,7 +55,7 @@ Below we show how to use all methods to estimate Lyapunov exponents for one dyna
 
 ## Example
 
-We provide a precomputed sequence with 1 million Jacobian values from the well-known [Lorenz system](https://en.wikipedia.org/wiki/Lorenz_system) in the file `lorenz.pt`. You can quickly test that the library is working properly by executing the following code:
+We provide a precomputed sequence with one million Jacobian values from the well-known [Lorenz system](https://en.wikipedia.org/wiki/Lorenz_system) in the file `lorenz.pt`. You can quickly test that the library is working properly by executing the following code:
 
 ```python
 import torch
