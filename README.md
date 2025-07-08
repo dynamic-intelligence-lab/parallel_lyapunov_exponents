@@ -171,7 +171,7 @@ print(*benchmarks, sep='\n')
 
 Selective resetting is a method we formulate in our paper for conditionally resetting interim states in any linear recurrence (diagonal or not, time-variant or not, over GOOMs or not, over real numbers or other fields) _as we compute all states in the linear recurrence in parallel via a prefix scan_.
 
-Our parallel algorithm for estimating the spectrum of Lyapunov exponents uses selective resetting to prevent deviation states from becoming colinear, as we compute all deviation states in parallel via a prefix scan. The implementation of our parallel algorithm in this repository, `lyapunov_exponents.estimate_spectrum_in_parallel()`, accepts two arguments that give you fine-grained control over selective resetting of interim deviation states. The two arguments are:
+Our parallel algorithm for estimating the spectrum of Lyapunov exponents uses selective resetting to prevent deviation states from becoming colinear, as we compute all deviation states in parallel via a prefix scan. The implementation of our parallel algorithm in this repository, `estimate_spectrum_in_parallel()`, accepts two arguments that give you fine-grained control over selective resetting of interim deviation states. The two arguments are:
 
 * `max_cos_sim`: a float specifying the maximum cosine similarity allowed between pairs of interim deviation states on any step. Default: 0.99999, _i.e._, selective resetting will be triggered when the cosine similarity of one or more pairs of state vectors exceeds 0.99999.
 
