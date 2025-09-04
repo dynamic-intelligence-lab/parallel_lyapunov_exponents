@@ -222,6 +222,17 @@ est_LLE = lyapunov_exponents.estimate_largest_in_parallel(
 Your custom `reduce_scan_func` must accept three arguments: (1) a complex tensor with a sequence of matrices of shape `...` x `n_steps` x `n_dims` x `n_dims`, where `...` can be any number of preceding dimensions and `n_steps` may vary, (2) a binary associative function (our code will pass `goom.log_matmul_exp`), and (3) an integer indicating the dimension over which to apply the parallel scan. Your custom `reduce_scan_func` must return a complex tensor of shape `...` x `n_dims` x `n_dims` with the reduced result. 
 
 
+## Possible Further Optimizations
+
+The code in this repository is a reference implementation meant to correspond as closely as possible to the formulation in our paper. We know that further optimizations are possible. For example, our code in `lyapunov_exponents.py` currently checks if all bias elements at each step on the left are still zeroed with the following statement,
+
+```python
+B_on_L_is_still_zeroed = (goom.exp(log_B_on_L) == 0).all(dim=(-2, -1))
+```
+
+which could be implemented more efficiently, say, by checking a boolean flag per position. We have refrained from implementing this and other optimizations, because _we want the code here to correspond as closely as possible to the formulation in our paper_. If you want to implement additional optimizations, you're welcome to do so on a separate repository of your own.
+
+
 ## Citing
 
 TODO: Update citation.
