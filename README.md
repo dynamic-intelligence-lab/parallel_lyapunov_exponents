@@ -46,7 +46,7 @@ The library provides three public methods:
 
 * `estimate_spectrum_in_parallel`, for estimating the spectrum of Lyapunov exponents, applying the parallel algorithm we propose, incorporating our selective-resetting method, _orders-of-magnitude faster than previous methods_, as described in our paper;
 
-* `estimate_largest_in_parallel`, for estimating only the largest Lyapunov exponent, applying the parallelizable expression we derive in our paper, which is _even faster_ and may suffice for many practical applications; and
+* `estimate_largest_in_parallel`, for estimating only the largest Lyapunov exponent, applying the parallelizable expression we derive in our paper, which is _even faster_ and suffices when the motivation is mainly to find out if a system is chaotic; and
 
 * `estimate_spectrum_sequentially`, for estimating the spectrum of Lyapunov exponents sequentially, applying the standard method with sequential QR-decompositions. We provide this method as a convenience, so you can benchmark it against the parallel methods.
 
