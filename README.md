@@ -224,13 +224,17 @@ Your custom `reduce_scan_func` must accept three arguments: (1) a complex tensor
 
 ## Possible Further Optimizations
 
-The code in this repository is a reference implementation meant to correspond as closely as possible to the formulation in our paper. We know that further optimizations are possible. For example, our code in `lyapunov_exponents.py` currently checks if all bias elements at each step on the left are still zeroed with the following statement,
+The code in this repository is a reference implementation meant to correspond as closely as possible to the formulation in our paper. We know that further optimizations are possible.
+
+For example, our code in `lyapunov_exponents.py` currently checks if all bias elements at each step on the left are still zeroed with the following statement,
 
 ```python
 B_on_L_is_still_zeroed = (goom.exp(log_B_on_L) == 0).all(dim=(-2, -1))
 ```
 
-which could be implemented more efficiently, say, by checking a boolean flag per position. We have refrained from implementing this and other optimizations, because _we want the code here to correspond as closely as possible to the formulation in our paper_. If you want to implement additional optimizations, you're welcome to do so on a separate repository of your own.
+which could be implemented more efficiently, say, by checking a boolean flag per position.
+
+We have refrained from implementing this and other optimizations because _we want the code here to correspond as closely as possible to the formulation in our paper_. If you want to implement additional optimizations, you're welcome to do so on a separate repository of your own.
 
 
 ## Citing
