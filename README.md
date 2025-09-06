@@ -46,7 +46,7 @@ The library provides three public methods:
 
 * `estimate_spectrum_in_parallel`, for estimating the spectrum of Lyapunov exponents, applying the parallel algorithm we propose, incorporating our selective-resetting method, _orders-of-magnitude faster than previous methods_, as described in our paper;
 
-* `estimate_largest_in_parallel`, for estimating only the largest Lyapunov exponent, applying the parallelizable expression we derive in our paper, which is _even faster_ and suffices when the motivation is mainly to find out if a system is chaotic; and
+* `estimate_largest_in_parallel`, for estimating only the largest Lyapunov exponent, applying the parallelizable expression we derive in our paper, which is _even faster_ (and, moreover, _it's all you need to determine if a system is chaotic_); and
 
 * `estimate_spectrum_sequentially`, for estimating the spectrum of Lyapunov exponents sequentially, applying the standard method with sequential QR-decompositions. We provide this method as a convenience, so you can benchmark it against the parallel methods.
 
@@ -82,7 +82,7 @@ print(est_LEs.tolist())
 
 For comparison, the true spectrum of Lorenz is estimated to be `[0.905, 0.0, −14.572]`.
 
-To estimate only the largest Lyapunov exponents in parallel, which is faster, use:
+To estimate only the largest Lyapunov exponents in parallel, which is _even faster_, use:
 
 ```python
 est_LLE = lyapunov_exponents.estimate_largest_in_parallel(jac_vals, dt=dt)
@@ -90,7 +90,7 @@ print("Estimated largest Lyapunov exponent for {}:".format(system['name']))
 print(est_LLE.item())
 ```
 
-To estimate the spectrum of Lyapunov exponents sequentially, which is slower, use:
+To estimate the spectrum of Lyapunov exponents sequentially, which is _much slower_, use:
 
 ```python
 seq_LEs = lyapunov_exponents.estimate_spectrum_sequentially(jac_vals, dt=dt)
@@ -212,7 +212,7 @@ Your custom `prefix_scan_func` must accept three arguments: (1) a complex tensor
 
 Our code for parallel estimation of the largest Lyapunov exponent of a dynamical system, implementing the expression we derive in Appendix B of our paper, is not only faster; it also scales well with the number of steps and the number of dimensions, without modification, subject only to the memory limits of a single cuda device.
 
-If execution requires more memory than you have available in a single device, you can pass a custom function that distributes execution of the parallel scan over multiple devices -- e.g., by applying parallel scans to different segments of the sequence in different devices, then applying a parallel scan over the partially reduced results in a single device. For example, if your custom parallel scan function is called `MyDistributedReduceScan`, you would execute:
+If execution requires more memory than you have available in a single device, you can pass a custom function that distributes execution of the parallel scan over multiple devices -- _e.g._, by applying parallel scans to different segments of the sequence in different devices, then applying a parallel scan over the partially reduced results in a single device. For example, if your custom parallel scan function is called `MyDistributedReduceScan`, you would execute:
 
 ```python
 est_LLE = lyapunov_exponents.estimate_largest_in_parallel(
