@@ -185,9 +185,24 @@ If you are interested in understanding how our selective-resetting method works,
 
 ## Scaling to Higher-Dimensional Systems
 
+
+### Largest Lyapunov Exponent of Higher-Dimensional Systems
+
+If your goal is only to determine whether a high-dimensional system is chaotic, you need to estimate only its largest Lyapunov exponent. Our code for parallel estimation of the largest exponent, `estimate_largest_in_parallel`, is both faster and more memory-efficient than the code for estimating all exponents, because it does not require any QR decompositons. It scales better with the number of steps _and_ the number of dimensions, without modification, subject only to the memory limits of a single cuda device.
+
+If execution requires more memory than you have available in a single device, you can pass a custom function that distributes execution of the parallel scan over multiple devices -- _e.g._, by applying parallel scans to different segments of the sequence in different devices, then applying a parallel scan over the partially reduced results in a single device. For example, if your custom parallel scan function is called `MyDistributedReduceScan`, you would execute:
+
+```python
+est_LLE = lyapunov_exponents.estimate_largest_in_parallel(
+    jac_vals, dt=dt, reduce_scan_func=MyDistributedReduceScan)
+```
+
+Your custom `reduce_scan_func` must accept three arguments: (1) a complex tensor with a sequence of matrices of shape `...` x `n_steps` x `n_dims` x `n_dims`, where `...` can be any number of preceding dimensions and `n_steps` may vary, (2) a binary associative function (our code will pass `goom.log_matmul_exp`), and (3) an integer indicating the dimension over which to apply the parallel scan. Your custom `reduce_scan_func` must return a complex tensor of shape `...` x `n_dims` x `n_dims` with the reduced result.
+
+
 ### Spectrum of Lyapunov Exponents of Higher-Dimensional Systems
 
-Our code for parallel estimation of the spectrum of Lyapunov exponents relies on a custom QR-decomposition function that scales well with the number of time steps for _low-dimensional_ systems. As the number of dimensions increases, parallel execution of QR-decompositions can saturate a single GPU to near-100% utilization, requiring additional parallel hardware (_e.g._, additional GPUs, additional GPU nodes, a distributed supercomputer) to benefit from parallelization.
+Our code for parallel estimation of the spectrum of Lyapunov exponents, `estimate_spectrum_in_parallel` relies on a custom QR-decomposition function that scales well with the number of time steps for _low-dimensional_ systems. As the number of dimensions increases, parallel execution of QR-decompositions can saturate a single GPU to near-100% utilization, requiring additional parallel hardware (_e.g._, additional GPUs, additional GPU nodes, a distributed supercomputer) to benefit from parallelization.
 
 If you have access to additional parallel hardware, you can pass a custom QR-decomposition function that takes advantage of such additional hardware. For example, if you have a QR-decomposition function called `MyDistributedQRFunc` that takes advantage of additional parallel hardware, you would execute:
 
@@ -206,20 +221,6 @@ est_LEs = lyapunov_exponents.estimate_spectrum_in_parallel(
 ```
 
 Your custom `prefix_scan_func` must accept three arguments: (1) a complex tensor with a sequence of matrices of shape `...` x `n_steps` x `n_rows` x `n_cols`, where `...` can be any number of preceding dimensions and `n_steps` may vary, (2) a binary associative function (our code will pass one), and (3) an integer indicating the dimension over which to apply the parallel scan. Your custom `reduce_scan_func` must return a complex tensor of shape `...` x `n_steps` x `n_rows` x `n_cols` with the cumulative matrix states. 
-
-
-### Largest Lyapunov Exponent of Higher-Dimensional Systems
-
-Our code for parallel estimation of the largest Lyapunov exponent of a dynamical system, implementing the expression we derive in Appendix B of our paper, is not only faster; it also scales well with the number of steps and the number of dimensions, without modification, subject only to the memory limits of a single cuda device.
-
-If execution requires more memory than you have available in a single device, you can pass a custom function that distributes execution of the parallel scan over multiple devices -- _e.g._, by applying parallel scans to different segments of the sequence in different devices, then applying a parallel scan over the partially reduced results in a single device. For example, if your custom parallel scan function is called `MyDistributedReduceScan`, you would execute:
-
-```python
-est_LLE = lyapunov_exponents.estimate_largest_in_parallel(
-    jac_vals, dt=dt, reduce_scan_func=MyDistributedReduceScan)
-```
-
-Your custom `reduce_scan_func` must accept three arguments: (1) a complex tensor with a sequence of matrices of shape `...` x `n_steps` x `n_dims` x `n_dims`, where `...` can be any number of preceding dimensions and `n_steps` may vary, (2) a binary associative function (our code will pass `goom.log_matmul_exp`), and (3) an integer indicating the dimension over which to apply the parallel scan. Your custom `reduce_scan_func` must return a complex tensor of shape `...` x `n_dims` x `n_dims` with the reduced result. 
 
 
 ## Possible Further Optimizations
