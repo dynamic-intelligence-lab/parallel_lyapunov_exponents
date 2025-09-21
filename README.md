@@ -115,7 +115,7 @@ To replicate our benchmarks, install Gilpin's [code](https://github.com/GilpinLa
 }
 ```
 
-The Jacobian values, `"jac_vals"`, should be a tensor with `100,000` x `n_dims` x `n_dims` elements. The file `lorenz_1M_steps.pt`, in this repository, stores data for one system with this dictionary format.
+The Jacobian values, `"jac_vals"`, should be a tensor with `100,000` x `n_dims` x `n_dims` elements. (The file `lorenz_1M_steps.pt`, in this repository, stores 1M steps for one system with this dictionary format.)
 
 Once you have computed data for all systems and stored it in a Python list of dictionaries `systems = [dict1, dict2, dict3, ...]`, execute the code below to run all benchmarks. IMPORTANT: The code below takes a LONG time to run, because sequential estimation becomes much slower as we increase the number of steps.
 
