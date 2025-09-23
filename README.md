@@ -240,8 +240,6 @@ We have refrained from implementing this and other optimizations because _we wan
 
 ## Citing
 
-TODO: Update citation.
-
 ```
 @article{
 heinsen2025generalized,
