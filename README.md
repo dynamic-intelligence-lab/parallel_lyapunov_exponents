@@ -243,12 +243,15 @@ We have refrained from implementing this and other optimizations because _we wan
 TODO: Update citation.
 
 ```
-@misc{heinsenkozachkov2025gooms,
-    title={
-        Generalized Orders of Magnitude for
-        Scalable, Parallel, High-Dynamic-Range Computation},
-    author={Franz A. Heinsen, Leo Kozachkov},
-    year={2025},
+@article{
+heinsen2025generalized,
+title={Generalized Orders of Magnitude for Scalable, Parallel, High-Dynamic-Range Computation},
+author={Franz A. Heinsen and Leo Kozachkov},
+journal={Transactions on Machine Learning Research},
+issn={2835-8856},
+year={2025},
+url={https://openreview.net/forum?id=SUuzb0SOGu},
+note={}
 }
 ```
 
