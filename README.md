@@ -23,7 +23,7 @@ print('Estimated largest Lyapunov exponent:', est_LLE.item())
 print('Compare to true exponents of Lorenz: [0.905, 0.0, -14.572]')
 ```
 
-Our parallel algorithm leverages [generalized orders of magnitude](https://github.com/glassroom/generalized_orders_of_magnitude) (GOOMs) to be able to handle a larger dynamic range of magnitudes than is possible with floating-point formats, and applies a novel selective-resetting method to prevent deviation states from becoming colinear, as we compute all states in parallel.
+Our parallel algorithm leverages [generalized orders of magnitude](https://github.com/dynamic-intelligence-lab/generalized_orders_of_magnitude) (GOOMs) to be able to handle a larger dynamic range of magnitudes than is possible with floating-point formats, and applies a novel selective-resetting method to prevent deviation states from becoming colinear, as we compute all states in parallel.
 
 ## Installing
 
@@ -180,7 +180,7 @@ Our parallel algorithm for estimating the spectrum of Lyapunov exponents uses se
 
 ### More Information on Selective Resetting
 
-If you are interested in understanding how our selective-resetting method works, we recommend taking a look at [https://github.com/glassroom/selective_resetting/](https://github.com/glassroom/selective_resetting/), an implementation of selective resetting over real numbers instead of GOOMs. We also recommend reading Appendix C of our paper, which explains the intuition behind selective resetting informally, with step-by-step examples.
+If you are interested in understanding how our selective-resetting method works, we recommend taking a look at [https://github.com/dynamic-intelligence-lab/selective_resetting/](https://github.com/dynamic-intelligence-lab/selective_resetting/), an implementation of selective resetting over real numbers instead of GOOMs. We also recommend reading Appendix C of our paper, which explains the intuition behind selective resetting informally, with step-by-step examples.
 
 
 ## Scaling to Higher-Dimensional Systems
